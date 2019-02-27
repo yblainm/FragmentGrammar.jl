@@ -1,3 +1,6 @@
+module parse_a_tree
+
+include("CompoundDists.jl")
 using GeneralizedChartParsing
 using .CompoundDists
 
@@ -38,3 +41,6 @@ function sampleTree(grammar, str) #sample a parse from possble parses of string
 
 v = [5, 10, 15]
 r = ChineseRest(v)
+#println(r)
+#println(g)
+end
