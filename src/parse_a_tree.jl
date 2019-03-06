@@ -37,4 +37,3 @@ v = [5, 10, 15]
 r = ChineseRest(v)
 #println(r)
 #println(g)
-end
