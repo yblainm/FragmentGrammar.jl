@@ -18,7 +18,15 @@ sample(dist::DummyDistribution{Tree}) = sampleTree(g, test_str)
 # Fragment Grammar definitions #
 ################################
 
-mutable struct FragmentGrammar{C}
+# TODO: initialize FG from a toy input grammar given in constructors
+#   - Add 1 count per PCFG rule by default (?)
+#   - FG initially has nothing in it, so given the input grammar, we can either
+#       add_obs!() or sample. Sampling makes most sense, and will add observations
+#       to the restaurants and BB (and DM).
+#   - This requires us to write the base distribution code. Should work according
+#       to Tim's book.
+
+mutable struct FragmentGrammar{C} <: Distribution{Tree}
     baseGrammar :: Grammar{C}
     restaurants :: Dict{C,ChineseRest{Tree}}
 
@@ -32,7 +40,8 @@ end
 
 function FragmentGrammar(g :: Grammar{C}) where C
     let basedist = DummyDistribution{Tree}(), a = 0.0, b = 0.1
-        FragmentGrammar(g, Dict{C,ChineseRest{Tree}}(cat => ChineseRest(a, b, basedist) for cat in g.categories), a, b, Dict{Tuple{String, Int}, Int}(), Dict{Int, Int}())
+        FragmentGrammar(g, Dict{C,ChineseRest{Tree}}(cat => ChineseRest(a, b, basedist)
+        for cat in g.categories), a, b, Dict(), Dict())
     end
 end
 
