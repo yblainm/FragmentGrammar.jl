@@ -33,7 +33,7 @@ end
 
 #function forwardSample(grammar, dist)
 
-v = [5, 10, 15]
-r = ChineseRest(v)
+# v = [5, 10, 15]
+# r = ChineseRest(v)
 #println(r)
 #println(g)

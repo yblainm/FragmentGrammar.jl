@@ -29,11 +29,17 @@ end
 
 function categorical_sample(tokens, weights)
     T = eltype(weights)
-    x = rand(T) * sum(weights)
+    local x
+    if T <: Integer
+        x = convert(T,round(rand()*sum(weights)))
+    else
+        x = convert(T, rand()*sum(weights))
+    end
+
     cum_weights = zero(T)
     for (t, w) in zip(tokens, weights)
         cum_weights += w
-        if cum_weights > x
+        if cum_weights >= x
             return t
         end
     end
@@ -193,9 +199,9 @@ support(r::ChineseRest) = support(r.basedist)
 function sample(r::ChineseRest)
     #flip is not a defined function
     if flip((r.num_tables * r.a + r.b) / (r.num_customers + r.b)) == 1
-        sample(r.basedist)
+        a = sample(r.basedist)
     else
-        categorical_sample(
+        a = categorical_sample(
             Dict(dish => sum(r.tables[dish]) for dish in keys(r.tables))
         )
     end
