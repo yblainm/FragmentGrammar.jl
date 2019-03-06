@@ -22,7 +22,7 @@ function parseString(grammar, str) #get all parses for string
     return trees
 end
 
-#parseString(g, "the dog paints prep dog")
+test_str = "the dog paints prep dog"
 
 function sampleTree(grammar, str) #sample a parse from possble parses of string
     g3 = add_forest_score(add_random_prob_score(grammar, :count), :prob)

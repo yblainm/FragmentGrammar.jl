@@ -5,7 +5,7 @@ using SpecialFunctions: lbeta
 using LogProbs
 
 # distribution types
-export BetaBern, DirMul, DirCat, UniCat, CatDist, ChineseRest
+export BetaBern, DirMul, DirCat, UniCat, CatDist, ChineseRest, Distribution
 
 # conditional distribution type
 export SimpleCond
