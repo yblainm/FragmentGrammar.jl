@@ -16,8 +16,7 @@ fg = FragmentGrammar(g)
 for i in 1:100
     forwardSample(fg)
 end
-println(fg.restaurants)
-# println(fg)
-#println("Fuck")
+#println(fg.restaurants)
+println(fg.DM)
 
 end
