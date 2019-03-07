@@ -3,7 +3,8 @@ module FragmentGrammars
 
 using GeneralizedChartParsing
 using GeneralizedChartParsing.Trees: Tree
-include("CompoundDists.jl"); using .CompoundDists; import .CompoundDists: sample
+include("CompoundDists.jl"); using .CompoundDists
+import .CompoundDists: sample
 include("parse_a_tree.jl")
 
 export FragmentGrammar, forwardSample, DummyDistribution, sample
@@ -29,27 +30,29 @@ sample(dist::DummyDistribution{Tree}) = sampleTree(g, test_str)
 
 mutable struct FragmentGrammar{C} <: Distribution{Tree}
     baseGrammar :: Grammar{C}
-    restaurants :: Dict{C,ChineseRest{Tree}}
 
+    restaurants :: Dict{C,ChineseRest{Tree}}
     a :: Float64 # discount parameter
     b :: Float64 # crp parameter
 
-    # For these, index by rule index or by the rule function itself?
-    pi :: Dict{Tuple{Int, Int}, Int}
-    psi :: Dict{Int, Int}
+    # Double-check
+    DM :: Dict{C, DirMul{Function, Int}}
+    BB :: Dict{Tuple{C, Function, C}, BetaBern{Bool, Int}}
 end
 
 function FragmentGrammar(g :: Grammar{C}) where C
+    # TODO Initialize DM counts to 1 where isapplicable(R, C) (R is a rule function object thing from g.all_rules), not for BB.
     let basedist = DummyDistribution{Tree}(), a = 0.2, b = 5.0
         FragmentGrammar(g, Dict{C,ChineseRest{Tree}}(cat => ChineseRest(a, b, basedist)
-        for cat in g.categories), a, b, Dict{Tuple{Int, Int}, Int}(), Dict{Int, Int}())
+        for cat in g.categories), a, b, Dict{C, DirMul{Function, Int}}(), Dict{Tuple{C,Function,C}, BetaBern{Bool, Int}}())
     end
 end
 
 function forwardSample(fg :: FragmentGrammar)
     start = fg.baseGrammar.start_categories[1]
     fragment = fg.restaurants[start] |> sample
-    # println(fg.restaurants[start].num_tables)
+    #TODO Write recursive helper function.
+    #   helper(FG, currentTreeFragment, listOfFragments, fullTree)
     add_obs!(fg.restaurants[start], fragment)
 end
 
