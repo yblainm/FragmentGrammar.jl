@@ -5,9 +5,10 @@ using GeneralizedChartParsing
 using GeneralizedChartParsing.Trees: Tree
 include("CompoundDists.jl"); using .CompoundDists
 import .CompoundDists: sample
+import Base.convert
 include("parse_a_tree.jl")
 
-export FragmentGrammar, forwardSample, DummyDistribution, sample, sampleHelper
+export FragmentGrammar, forwardSample, convert, DummyDistribution, sample, sampleHelper
 
 ###########################
 # Dummy structs/functions #
@@ -72,6 +73,14 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree, trees :: Array
         append!(currentTree.children, Tree(children))
     end
     return currentTree
+end
+
+function convert(::Type{Tree{T}}, tree::Tree) where T
+    newtree = Tree(convert(T, tree.value))
+    for child in tree.children
+        add_child!(newtree, convert(Tree{T}, child))
+    end
+    newtree
 end
 
 end

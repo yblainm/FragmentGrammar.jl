@@ -15,14 +15,14 @@ include("parse_a_tree.jl")
 isapplicable(r, c) = r(c) !== nothing
 
 fg = FragmentGrammar(g)
-for i in 1:100
-    forwardSample(fg)
-end
+# for i in 1:100
+#     forwardSample(fg)
+# end
 #println(fg.restaurants)
 # println(fg.DM)
 #println(fg.BB)
 
-trees = [Tree{AbstractString}(fg.baseGrammar.start_categories[1], nothing, [])]
+trees = [Tree("D")]#fg.baseGrammar.start_categories[1])]
 println(sampleHelper(fg, trees[1], trees, Tree("D")))
 
 end
