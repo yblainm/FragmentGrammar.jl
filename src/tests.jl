@@ -20,7 +20,9 @@ for i in 1:100
 end
 #println(fg.restaurants)
 # println(fg.DM)
-println(fg.BB)
-# getfield
+#println(fg.BB)
+
+trees = [Tree{AbstractString}(fg.baseGrammar.start_categories[1], nothing, [])]
+println(sampleHelper(fg, trees[1], trees, Tree("D")))
 
 end

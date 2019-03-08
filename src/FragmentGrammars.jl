@@ -7,7 +7,7 @@ include("CompoundDists.jl"); using .CompoundDists
 import .CompoundDists: sample
 include("parse_a_tree.jl")
 
-export FragmentGrammar, forwardSample, DummyDistribution, sample
+export FragmentGrammar, forwardSample, DummyDistribution, sample, sampleHelper
 
 ###########################
 # Dummy structs/functions #
@@ -57,8 +57,21 @@ function forwardSample(fg :: FragmentGrammar)
     add_obs!(fg.restaurants[start], fragment)
 end
 
-function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree, trees :: Array{Tree}, fullTree :: Tree)
-
+function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree, trees :: Array{Tree{T}, 1}, fullTree :: Tree) where T
+    local r
+    for (k, v) in sample(fg.DM[currentTree.value], 1)
+        if v == 1
+            r = k
+        end
+    end
+    children = r(currentTree.value)
+    Ty = typeof(children)
+    if Ty <: Tuple
+        append!(currentTree.children, [Tree(child) for child in children])
+    else
+        append!(currentTree.children, Tree(children))
+    end
+    return currentTree
 end
 
 end
