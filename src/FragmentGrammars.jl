@@ -21,7 +21,7 @@ sample(dist::DummyDistribution{Tree}) = sampleTree(g, test_str)
 ################################
 
 # TODO: initialize FG from a toy input grammar given in constructors
-#   - Add 1 count per PCFG rule by default (?)
+#   - Add 1 count per PCFG rule by default (?)  DONE
 #   - FG initially has nothing in it, so given the input grammar, we can either
 #       add_obs!() or sample. Sampling makes most sense, and will add observations
 #       to the restaurants and BB (and DM).
@@ -36,18 +36,16 @@ mutable struct FragmentGrammar{C} <: Distribution{Tree}
     b :: Float64 # crp parameter
 
     # Double-check
-    DM :: Dict{C, DirMul{NamedFunction, Float64}}
-    BB :: Dict{Tuple{C, Function, C}, BetaBern{Bool, Int}}
+    DM :: Dict{C, DirMul{<:Function, Float64}}
+    BB :: Dict{Tuple{C, <:Function, C}, BetaBern{Bool, Int}}
 end
 
 isapplicable(r, c) = r(c) !== nothing
 
 function FragmentGrammar(g :: Grammar{C}) where C
-    # TODO Initialize DM counts to 1 where isapplicable(R, C) (R is a rule function object thing from g.all_rules), not for BB.
-    #right now all rules are initialized to 1; need to include only the applicable rules
     let basedist = DummyDistribution{Tree}(), a = 0.2, b = 5.0
         FragmentGrammar(g, Dict{C,ChineseRest{Tree}}(cat => ChineseRest(a, b, basedist)
-        for cat in g.categories), a, b, Dict{C, DirMul{NamedFunction, Float64}}(cat => DirMul([r for r in g.all_rules]) for cat in g.categories), Dict{Tuple{C,Function,C}, BetaBern{Bool, Int}}())
+        for cat in g.categories), a, b, Dict{C, DirMul{<:Function, Float64}}(cat => DirMul([r for r in g.all_rules if isapplicable(r, cat)]) for cat in g.categories), Dict{Tuple{C,<:Function,C}, BetaBern{Bool, Int}}())
     end
 end
 
@@ -57,6 +55,10 @@ function forwardSample(fg :: FragmentGrammar)
     #TODO Write recursive helper function.
     #   helper(FG, currentTreeFragment, listOfFragments, fullTree)
     add_obs!(fg.restaurants[start], fragment)
+end
+
+function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree, trees :: Array{Tree}, fullTree :: Tree)
+
 end
 
 end
