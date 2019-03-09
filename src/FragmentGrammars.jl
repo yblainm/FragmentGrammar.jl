@@ -59,19 +59,43 @@ function forwardSample(fg :: FragmentGrammar)
 end
 
 function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree, trees :: Array{Tree{T}, 1}, fullTree :: Tree) where T
+    if currentTree.value in keys(fg.baseGrammar.terminal_dict)
+        return currentTree
+    end
+
     local r
-    for (k, v) in sample(fg.DM[currentTree.value], 1)
+    rules_sample = sample(get(fg.DM, currentTree.value, nothing), 1)
+    if rules_sample === nothing
+        return nothing
+    end
+
+    for (k, v) in rules_sample
         if v == 1
             r = k
         end
     end
+
     children = r(currentTree.value)
     Ty = typeof(children)
-    if Ty <: Tuple
-        append!(currentTree.children, [Tree(child) for child in children])
+
+    if Ty <: Tuple  # if binary rule
+        # append!(currentTree.children, [Tree(child) for child in children])
+        for child in children
+            childTree = sampleHelper(fg, Tree(child), trees, fullTree)
+
+            # IF BB -> KEEP:
+            currentTree.add_child!(childTree)
+            # Add to fullTree (MAKE A COPY METHOD)
+
+            # IF BB -> FRAGMENT then
+            # append!(trees, childtree)
+            # Add to fullTree (MAKE A COPY METHOD)
     else
-        append!(currentTree.children, Tree(children))
+        childTree = sampleHelper(fg, Tree(children), trees, fullTree)
+        currentTree.add_child!(Tree(children))
+        # append!(currentTree.children, Tree(children))
     end
+
     return currentTree
 end
 
