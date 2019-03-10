@@ -1,14 +1,19 @@
 __precompile__()
 module FragmentGrammars
 
+
+# import Base: convert, promote_rule
+
 using GeneralizedChartParsing
-using GeneralizedChartParsing.Trees: Tree
+using GeneralizedChartParsing.Trees
+
 include("CompoundDists.jl"); using .CompoundDists
 import .CompoundDists: sample
-import Base.convert
-include("parse_a_tree.jl")
 
-export FragmentGrammar, forwardSample, convert, DummyDistribution, sample, sampleHelper
+export FragmentGrammar, forwardSample, DummyDistribution, sample, sampleHelper
+# export convert
+
+include("parse_a_tree.jl")
 
 ###########################
 # Dummy structs/functions #
@@ -58,7 +63,8 @@ function forwardSample(fg :: FragmentGrammar)
     add_obs!(fg.restaurants[start], fragment)
 end
 
-function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree, trees :: Array{Tree{T}, 1}, fullTree :: Tree) where T
+function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Array{Tree{T}, 1}, fullTree :: Tree{T}) where T
+    # println(currentTree.value, " ", typeof(currentTree.value))
     if currentTree.value in keys(fg.baseGrammar.terminal_dict)
         return currentTree
     end
@@ -81,30 +87,33 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree, trees :: Array
     if Ty <: Tuple  # if binary rule
         # append!(currentTree.children, [Tree(child) for child in children])
         for child in children
-            childTree = sampleHelper(fg, Tree(child), trees, fullTree)
+            childTree = sampleHelper(fg, Tree(child, T), trees, fullTree)
 
             # IF BB -> KEEP:
-            currentTree.add_child!(childTree)
-            # Add to fullTree (MAKE A COPY METHOD)
+            add_child!(currentTree, childTree)
+            # add_child!(fullTree, childTree)
 
             # IF BB -> FRAGMENT then
             # append!(trees, childtree)
-            # Add to fullTree (MAKE A COPY METHOD)
+        end
     else
-        childTree = sampleHelper(fg, Tree(children), trees, fullTree)
-        currentTree.add_child!(Tree(children))
-        # append!(currentTree.children, Tree(children))
+        childTree = sampleHelper(fg, Tree(children, T), trees, fullTree)
+        add_child!(currentTree, childTree)
     end
 
     return currentTree
 end
 
-function convert(::Type{Tree{T}}, tree::Tree) where T
-    newtree = Tree(convert(T, tree.value))
-    for child in tree.children
-        add_child!(newtree, convert(Tree{T}, child))
-    end
-    newtree
-end
+# function convert(::Type{Tree{T}}, tree::Tree{V}) where {T, V}
+#     if V === T return tree end
+#     newtree = Tree(convert(T, tree.value))
+#     for child in tree.children
+#         add_child!(newtree, convert(Tree{T}, child))
+#     end
+#     newtree
+# end
+#
+# promote_rule(::Type{Tree{SubString{String}}}, ::Type{Tree{String}}) = Tree{String}
+
 
 end

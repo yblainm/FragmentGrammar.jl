@@ -6,7 +6,7 @@ module tests
 include("FragmentGrammars.jl"); using .FragmentGrammars
 using .FragmentGrammars: DummyDistribution
 using GeneralizedChartParsing
-using GeneralizedChartParsing.Trees: Tree
+using GeneralizedChartParsing.Trees
 include("parse_a_tree.jl")
 
 # str = "the dog paints prep dog"
@@ -22,7 +22,13 @@ fg = FragmentGrammar(g)
 # println(fg.DM)
 #println(fg.BB)
 
-trees = [Tree("D")]#fg.baseGrammar.start_categories[1])]
-println(sampleHelper(fg, trees[1], trees, Tree("D")))
+# a = Tree(SubString{String}("Okay"), AbstractString)
+# add_child!(a, Tree("I see", AbstractString))
+# println(a)
+
+trees = [Tree(fg.baseGrammar.start_categories[1], AbstractString)]
+for i in 1:10
+    println(sampleHelper(fg, trees[1], trees, trees[1]))
+end
 
 end
