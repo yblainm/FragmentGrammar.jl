@@ -76,7 +76,7 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Ar
     end
 
     for (k, v) in rules_sample
-        if v == 1
+        if v == 1 # There is only one of these
             r = k
         end
     end
@@ -85,13 +85,11 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Ar
     Ty = typeof(children)
 
     if Ty <: Tuple  # if binary rule
-        # append!(currentTree.children, [Tree(child) for child in children])
         for child in children
             childTree = sampleHelper(fg, Tree(child, T), trees, fullTree)
 
             # IF BB -> KEEP:
             add_child!(currentTree, childTree)
-            # add_child!(fullTree, childTree)
 
             # IF BB -> FRAGMENT then
             # append!(trees, childtree)

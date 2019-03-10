@@ -1,15 +1,27 @@
 g = grammar_from_string(
-        """
-        S --> NP VP
-        NP --> D N | dog
-        VP --> V NP | V PP
-        PP --> P N
-        D --> the | prep
-        N --> dog
-        V --> paints
-        P --> prep
-        """
-    );
+    """
+    S --> NP VP
+    NP --> D N | dog
+    VP --> V NP | V PP
+    PP --> P N
+    D --> the | prep
+    N --> dog
+    V --> paints
+    P --> prep
+    """
+);
+# g = grammar_from_string(
+#     """
+#     S --> NP VP
+#     NP --> D N | D dog | dog  # Binary rules can ONLY be non-terminals
+#     VP --> V NP | V PP
+#     PP --> P N
+#     D --> the | prep
+#     N --> dog
+#     V --> paints
+#     P --> prep
+#     """
+# );
 
 function parseString(grammar, str) #get all parses for string
     scores = parse(grammar, split(str))

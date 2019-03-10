@@ -27,8 +27,6 @@ fg = FragmentGrammar(g)
 # println(a)
 
 trees = [Tree(fg.baseGrammar.start_categories[1], AbstractString)]
-for i in 1:10
-    println(sampleHelper(fg, trees[1], trees, trees[1]))
-end
+println(sampleHelper(fg, trees[1], trees, trees[1]))
 
 end
