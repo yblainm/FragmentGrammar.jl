@@ -27,10 +27,9 @@ fg = FragmentGrammar(g)
 # println(a)
 
 trees = [Tree(fg.baseGrammar.start_categories[1], AbstractString)]
-sampledTree = Tree(fg.baseGrammar.start_categories[1], AbstractString)
 println("Test run------------")
-sampleHelper(fg, trees[1], trees, sampledTree)
-println("Full tree: ", sampledTree)
+fulltree = sampleHelper(fg, trees[1], trees, Tree(fg.baseGrammar.start_categories[1], AbstractString))[2]
+println("Full tree: ", fulltree)
 println("Fragments:")
 for t in trees println(t) end
 

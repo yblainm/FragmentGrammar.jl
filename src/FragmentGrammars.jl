@@ -73,7 +73,7 @@ end
 function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Array{Tree{T}, 1}, fullTree :: Tree{T}) where T
     # println(currentTree.value, " ", typeof(currentTree.value))
     if currentTree.value in keys(fg.baseGrammar.terminal_dict)
-        return currentTree
+        return currentTree, fullTree
     end
 
     local r
@@ -93,8 +93,7 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Ar
 
     if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
         for child in children
-            childFullTree = Tree(child, T)
-            childTree = sampleHelper(fg, Tree(child, T), trees, childFullTree)
+            childTree, childFullTree = sampleHelper(fg, Tree(child, T), trees, Tree(child, T))
             add_child!(fullTree, childFullTree)
 
             # IF BB -> KEEP:
@@ -103,18 +102,17 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Ar
 
             # IF BB -> FRAGMENT then
             else
-                add_child!(currentTree, Tree(child, T))
+                add_child!(currentTree, Tree(child, T)) # add the non-terminal only
                 push!(trees, childTree)
             end
         end
-    else            # if unary (terminal) rule
-        childFullTree = Tree(children, T)
-        childTree = sampleHelper(fg, Tree(children, T), trees, childFullTree)
+    else    # if unary (terminal) rule
+        childTree, childFullTree = sampleHelper(fg, Tree(children, T), trees, Tree(children, T))
         add_child!(currentTree, childTree)
-        add_child!(fullTree, childTree)
+        add_child!(fullTree, childFullTree)
     end
 
-    return currentTree
+    return currentTree, fullTree
 end
 
 # function convert(::Type{Tree{T}}, tree::Tree{V}) where {T, V}
