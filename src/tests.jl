@@ -33,6 +33,9 @@ println("Full tree: ", fulltree)
 println("Fragments:")
 for t in trees println(t) end
 
+println()
+ex = :(Tree("S")  == Tree("S"))
+println(ex, " ", eval(ex))
 
 # a = Tree("A", AbstractString)
 # add_child!(a, Tree("B", AbstractString))
