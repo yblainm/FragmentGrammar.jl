@@ -50,8 +50,12 @@ isapplicable(r, c) = r(c) !== nothing
 
 function FragmentGrammar(g :: Grammar{C}) where C
     let basedist = DummyDistribution{Tree}(), a = 0.2, b = 5.0
-        FragmentGrammar(g, Dict{C,ChineseRest{Tree}}(cat => ChineseRest(a, b, basedist)
-        for cat in g.categories), a, b, Dict{C, DirMul{<:Function, Float64}}(cat => DirMul([r for r in g.all_rules if isapplicable(r, cat)]) for cat in g.categories), Dict{Tuple{C,<:Function,C}, BetaBern{Bool, Int}}())
+        FragmentGrammar(g,
+        Dict{C,ChineseRest{Tree}}(cat => ChineseRest(a, b, basedist) for cat in g.categories),
+        a, b,
+        Dict{C, DirMul{<:Function, Float64}}(cat => DirMul([r for r in g.all_rules if isapplicable(r, cat)]) for cat in g.categories),
+        Dict{Tuple{C,<:Function,C}, BetaBern{Bool, Int}}((g.categories[catidx], g.all_rules[ruleidx], g.categories[rhs]) => BetaBern(1, 1) for (rhss, comps) in g.binary_dict for rhs in rhss for (catidx, ruleidx) in comps))
+
     end
 end
 
@@ -60,6 +64,9 @@ function forwardSample(fg :: FragmentGrammar)
     fragment = fg.restaurants[start] |> sample
     #TODO Write recursive helper function.
     #   helper(FG, currentTreeFragment, listOfFragments, fullTree)
+    #   Parameter tree should be of type `supertype` of the categories, unless
+    #   that supertype is Any. Hopefully that should work for most possible
+    #   cases including custom structs.
     add_obs!(fg.restaurants[start], fragment)
 end
 
@@ -84,19 +91,27 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Ar
     children = r(currentTree.value)
     Ty = typeof(children)
 
-    if Ty <: Tuple  # if binary rule
+    if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
         for child in children
-            childTree = sampleHelper(fg, Tree(child, T), trees, fullTree)
+            childFullTree = Tree(child, T)
+            childTree = sampleHelper(fg, Tree(child, T), trees, childFullTree)
+            add_child!(fullTree, childFullTree)
 
             # IF BB -> KEEP:
-            add_child!(currentTree, childTree)
+            if (keep = sample(fg.BB[(currentTree.value, r, child)]))
+                add_child!(currentTree, childTree)
 
             # IF BB -> FRAGMENT then
-            # append!(trees, childtree)
+            else
+                add_child!(currentTree, Tree(child, T))
+                push!(trees, childTree)
+            end
         end
-    else
-        childTree = sampleHelper(fg, Tree(children, T), trees, fullTree)
+    else            # if unary (terminal) rule
+        childFullTree = Tree(children, T)
+        childTree = sampleHelper(fg, Tree(children, T), trees, childFullTree)
         add_child!(currentTree, childTree)
+        add_child!(fullTree, childTree)
     end
 
     return currentTree
