@@ -75,7 +75,7 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}) where T
 
     dm_sample = sample(get(fg.DM, currentTree.value, nothing), 1) # sample from nothing in default case??? Fix this.
     dm_counts = collect(Pair{Function, Int}, dm_sample)
-    local bb_counts # :: Tuple{Tuple{T,Function,T}, Bool}
+    local bb_counts = Tuple{Tuple{T,Function,T}, Bool}[]
 
     r = get_rule(dm_sample)
     children = r(currentTree.value)
@@ -83,17 +83,17 @@ function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}) where T
 
     if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
         for child in children
-            childTree, child_dm_sample, child_bb_counts = sampleHelper(fg, Tree(child, T))
-            child_dm_counts = collect(Pair{Function, Int}, child_dm_sample)
             bbidx = (currentTree.value, r, child)
             if (keep = sample(fg.BB[bbidx]))
+                childTree, child_dm_sample, child_bb_counts = sampleHelper(fg, Tree(child, T))
+                append!(bb_counts, child_bb_counts)
+                child_dm_counts = collect(Pair{Function, Int}, child_dm_sample)
                 add_child!(currentTree, childTree)
                 append!(dm_counts, child_dm_counts)
             else
                 add_child!(currentTree, Tree(child,T))
             end
-            push!(child_bb_counts, (bbidx, keep))
-            bb_counts = child_bb_counts
+            push!(bb_counts, (bbidx, keep))
         end
     else    # if unary (terminal) rule
         # bbidx = (currentTree.value, r, children)
