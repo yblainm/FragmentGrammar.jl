@@ -26,20 +26,15 @@ fg = FragmentGrammar(g)
 # add_child!(a, Tree("I see", AbstractString))
 # println(a)
 
-trees = [Tree(fg.baseGrammar.start_categories[1], AbstractString)]
 println("Test run------------")
-fulltree = sampleHelper(fg, trees[1], trees, Tree(fg.baseGrammar.start_categories[1], AbstractString))[2]
-println("Full tree: ", fulltree)
-println("Fragments:")
-for t in trees println(t) end
+@show sampleHelper(fg, Tree(fg.baseGrammar.start_categories[1], AbstractString))
+# @time for i in 1:1 sampleHelper(fg, Tree(fg.baseGrammar.start_categories[1], AbstractString)) end
+# @show hash(Tree(fg.baseGrammar.start_categories[1], AbstractString))
+# @show hash(Tree(fg.baseGrammar.start_categories[1], AbstractString))
+# @show isequal(Tree(fg.baseGrammar.start_categories[1], AbstractString),Tree(fg.baseGrammar.start_categories[1], AbstractString))
 
-println()
-ex = :(Tree("S")  == Tree("S"))
-println(ex, " ", eval(ex))
-
-# a = Tree("A", AbstractString)
-# add_child!(a, Tree("B", AbstractString))
-# push!(trees, a)
-# println(trees)
+# frags = [Tree(fg.baseGrammar.start_categories[1], AbstractString)]
+# full = Tree(fg.baseGrammar.start_categories[1], AbstractString)
+# @time for i in 1:50000 sampleHelper(fg, frags[1], frags, full) end
 
 end

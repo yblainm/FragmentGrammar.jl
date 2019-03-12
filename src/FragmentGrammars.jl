@@ -70,50 +70,87 @@ function forwardSample(fg :: FragmentGrammar)
     add_obs!(fg.restaurants[start], fragment)
 end
 
-function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Array{Tree{T}, 1}, fullTree :: Tree{T}) where T
-    # println(currentTree.value, " ", typeof(currentTree.value))
-    if currentTree.value in keys(fg.baseGrammar.terminal_dict)
-        return currentTree, fullTree
-    end
-
+function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}) where T
     local r
-    rules_sample = sample(get(fg.DM, currentTree.value, nothing), 1)
-    if rules_sample === nothing
-        return nothing
-    end
 
-    for (k, v) in rules_sample
-        if v == 1 # There is only one of these
-            r = k
-        end
-    end
+    get_rule(rules::Dict) = for (k, v) in rules if v == 1 return k end end
+
+    dm_sample = sample(get(fg.DM, currentTree.value, nothing), 1) # sample from nothing in default case??? Fix this.
+
+    r = get_rule(dm_sample)
 
     children = r(currentTree.value)
     Ty = typeof(children)
 
     if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
         for child in children
-            childTree, childFullTree = sampleHelper(fg, Tree(child, T), trees, Tree(child, T))
-            add_child!(fullTree, childFullTree)
-
-            # IF BB -> KEEP:
-            if (keep = sample(fg.BB[(currentTree.value, r, child)]))
+            childTree, child_dm_sample = sampleHelper(fg, Tree(child, T))
+            bbidx = (currentTree.value, r, child)
+            if (keep = sample(fg.BB[bbidx]))
                 add_child!(currentTree, childTree)
-
-            # IF BB -> FRAGMENT then
+                dm_sample = merge(+, dm_sample, child_dm_sample)
             else
-                add_child!(currentTree, Tree(child, T)) # add the non-terminal only
-                push!(trees, childTree)
+                add_child!(currentTree, Tree(child,T))
             end
         end
     else    # if unary (terminal) rule
-        childTree, childFullTree = sampleHelper(fg, Tree(children, T), trees, Tree(children, T))
-        add_child!(currentTree, childTree)
-        add_child!(fullTree, childFullTree)
+        bbidx = (currentTree.value, r, children)
+        if children in keys(fg.baseGrammar.terminal_dict) # if RHS is terminal
+            add_child!(currentTree, Tree(children, T))
+        elseif (keep = sample(fg.BB[bbidx])) # if RHS is non-terminal (won't happen)
+            childTree, child_dm_sample = sampleHelper(fg, Tree(child, T))
+            dm_sample = merge(+, dm_sample, child_dm_sample)
+            add_child!(currentTree, childTree)
+        end
     end
 
-    return currentTree, fullTree
+    return currentTree, dm_sample
 end
+
+# function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Array{Tree{T}, 1}, fullTree :: Tree{T}) where T
+#     # println(currentTree.value, " ", typeof(currentTree.value))
+#     if currentTree.value in keys(fg.baseGrammar.terminal_dict)
+#         return currentTree, fullTree
+#     end
+#
+#     local r
+#     rules_sample = sample(get(fg.DM, currentTree.value, nothing), 1)
+#     if rules_sample === nothing
+#         return nothing
+#     end
+#
+#     for (k, v) in rules_sample
+#         if v == 1 # There is only one of these
+#             r = k
+#         end
+#     end
+#
+#     children = r(currentTree.value)
+#     Ty = typeof(children)
+#
+#     if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
+#         for child in children
+#             childTree, childFullTree = sampleHelper(fg, Tree(child, T), trees, Tree(child, T))
+#             add_child!(fullTree, childFullTree)
+#
+#             # IF BB -> KEEP:
+#             if (keep = sample(fg.BB[(currentTree.value, r, child)]))
+#                 add_child!(currentTree, childTree)
+#
+#             # IF BB -> FRAGMENT then
+#             else
+#                 add_child!(currentTree, Tree(child, T)) # add the non-terminal only
+#                 push!(trees, childTree)
+#             end
+#         end
+#     else    # if unary (terminal) rule
+#         childTree, childFullTree = sampleHelper(fg, Tree(children, T), trees, Tree(children, T))
+#         add_child!(currentTree, childTree)
+#         add_child!(fullTree, childFullTree)
+#     end
+#
+#     return currentTree, fullTree
+# end
 
 # function convert(::Type{Tree{T}}, tree::Tree{V}) where {T, V}
 #     if V === T return tree end
