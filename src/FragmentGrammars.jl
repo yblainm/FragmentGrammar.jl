@@ -71,40 +71,44 @@ function forwardSample(fg :: FragmentGrammar)
 end
 
 function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}) where T
-    local r
-
     get_rule(rules::Dict) = for (k, v) in rules if v == 1 return k end end
 
     dm_sample = sample(get(fg.DM, currentTree.value, nothing), 1) # sample from nothing in default case??? Fix this.
+    dm_counts = collect(Pair{Function, Int}, dm_sample)
+    local bb_counts # :: Tuple{Tuple{T,Function,T}, Bool}
 
     r = get_rule(dm_sample)
-
     children = r(currentTree.value)
     Ty = typeof(children)
 
     if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
         for child in children
-            childTree, child_dm_sample = sampleHelper(fg, Tree(child, T))
+            childTree, child_dm_sample, child_bb_counts = sampleHelper(fg, Tree(child, T))
+            child_dm_counts = collect(Pair{Function, Int}, child_dm_sample)
             bbidx = (currentTree.value, r, child)
             if (keep = sample(fg.BB[bbidx]))
                 add_child!(currentTree, childTree)
-                dm_sample = merge(+, dm_sample, child_dm_sample)
+                append!(dm_counts, child_dm_counts)
             else
                 add_child!(currentTree, Tree(child,T))
             end
+            push!(child_bb_counts, (bbidx, keep))
+            bb_counts = child_bb_counts
         end
     else    # if unary (terminal) rule
-        bbidx = (currentTree.value, r, children)
+        # bbidx = (currentTree.value, r, children)
         if children in keys(fg.baseGrammar.terminal_dict) # if RHS is terminal
             add_child!(currentTree, Tree(children, T))
-        elseif (keep = sample(fg.BB[bbidx])) # if RHS is non-terminal (won't happen)
-            childTree, child_dm_sample = sampleHelper(fg, Tree(child, T))
-            dm_sample = merge(+, dm_sample, child_dm_sample)
-            add_child!(currentTree, childTree)
+            bb_counts = Tuple{Tuple{T,Function,T}, Bool}[]
+        # elseif (keep = sample(fg.BB[bbidx])) # if RHS is non-terminal (won't happen)
+        #     childTree, child_dm_sample = sampleHelper(fg, Tree(child, T))
+        #     child_dm_counts = collect(Pair{Function, Int}, child_dm_sample)
+        #     append!(dm_counts, child_dm_counts)
+        #     add_child!(currentTree, childTree)
         end
     end
 
-    return currentTree, dm_sample
+    return currentTree, dm_counts, bb_counts
 end
 
 # function sampleHelper(fg :: FragmentGrammar, currentTree :: Tree{T}, trees :: Array{Tree{T}, 1}, fullTree :: Tree{T}) where T

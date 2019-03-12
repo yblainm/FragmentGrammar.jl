@@ -27,8 +27,15 @@ fg = FragmentGrammar(g)
 # println(a)
 
 println("Test run------------")
-@show sampleHelper(fg, Tree(fg.baseGrammar.start_categories[1], AbstractString))
-# @time for i in 1:1 sampleHelper(fg, Tree(fg.baseGrammar.start_categories[1], AbstractString)) end
+@time x, y, z = sampleHelper(fg, Tree(fg.baseGrammar.start_categories[1], AbstractString))
+@show x
+@time y = foldr((x,y)->merge(+,Dict(x), Dict(y)), y) # Make obs dict for DM
+@show y
+@show z
+#
+# @time for i in 1:10 sampleHelper(fg, Tree(fg.baseGrammar.start_categories[1], AbstractString)) end
+# @time for i in 1:1000 sampleHelper(fg, Tree(fg.baseGrammar.start_categories[1], AbstractString)) end
+# @time for i in 1:10000 sampleHelper(fg, Tree(fg.baseGrammar.start_categories[1], AbstractString)) end
 # @show hash(Tree(fg.baseGrammar.start_categories[1], AbstractString))
 # @show hash(Tree(fg.baseGrammar.start_categories[1], AbstractString))
 # @show isequal(Tree(fg.baseGrammar.start_categories[1], AbstractString),Tree(fg.baseGrammar.start_categories[1], AbstractString))
