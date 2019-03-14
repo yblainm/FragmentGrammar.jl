@@ -5,6 +5,7 @@ module FragmentGrammars
 # import Base: convert, promote_rule
 
 using GeneralizedChartParsing
+using GeneralizedChartParsing: isapplicable
 using GeneralizedChartParsing.Trees
 
 include("CompoundDists.jl"); using .CompoundDists
@@ -57,7 +58,7 @@ struct BaseDistribution{C} <: Distribution{Fragment}
     category :: C
 end
 
-isapplicable(r, c) = r(c) !== nothing
+# isapplicable(r, c) = r(c) !== nothing
 
 function FragmentGrammar(g :: Grammar{C}, t::Type) where C
     let a = 0.2, b = 5.0
@@ -96,7 +97,8 @@ function sample(basedist :: BaseDistribution)
             bbidx = (basedist.category, r, child)
             if (flip = sample(basedist.fg.BB[bbidx])) # if we extend the fragment
                 frag = sample(basedist.fg, child).fragment
-                push!(tree.children, frag.tree)   # Only points toward the tree, its parent is still ::Nothing
+                add_child!(tree, deepcopy(frag.tree))
+                # push!(tree.children, frag.tree)   # Only points toward the tree, its parent is still ::Nothing
                 append!(variables, frag.variables)
             else
                 variable_tree = Tree(child, basedist.fg.treeType)
