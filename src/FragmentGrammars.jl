@@ -23,6 +23,14 @@ include("parse_a_tree.jl")
 struct DummyDistribution{T} <: Distribution{T} end
 sample(dist::DummyDistribution{Tree}) = sampleTree(g, test_str)
 
+get_idx(A::AbstractArray{T,1}, i::T) where T = (
+    for (j,k) in enumerate(A)
+        if i == k
+            return j
+        end
+    end; error("element $i not found in $A")
+)
+
 ################################
 # Fragment Grammar definitions #
 ################################
@@ -45,16 +53,18 @@ struct Pointer
     children :: Dict{Tree, Pointer}
 end
 
-mutable struct FragmentGrammar{C}
+mutable struct FragmentGrammar{C, D}
     baseGrammar :: Grammar{C}
-    CRP :: Dict{C,ChineseRest{Fragment}}
-    DM :: Dict{C, DirMul{<:Function, Float64}}
-    BB :: Dict{Tuple{C, <:Function, C}, BetaBern{Bool, Int}}
-    treeType :: Type
+    CRP :: Array{ChineseRest{Fragment},1}
+    DM :: Array{DirMul{Int, Float64},1}
+    BB :: Dict{Tuple{Int, Int, Int}, BetaBern{Bool, Int}}
+    treeType :: Type{D}
+    categories :: Array{D, 1}
 end
 
 struct BaseDistribution{C} <: Distribution{Fragment}
     fg :: FragmentGrammar{C}
+    catidx :: Int
     category :: C
 end
 
@@ -64,15 +74,18 @@ function FragmentGrammar(g :: Grammar{C}, t::Type) where C
     let a = 0.2, b = 5.0
         fg = FragmentGrammar(g,
         # CRP
-        Dict{C,ChineseRest{Fragment}}(),
+        ChineseRest{Fragment}[],
         # DM
-        Dict{C, DirMul{<:Function, Float64}}(cat => DirMul([r for r in g.all_rules if isapplicable(r, cat)]) for cat in g.categories),
+        DirMul{Int, Float64}[DirMul([i for (i, r) in enumerate(g.all_rules) if isapplicable(r, cat)]) for (j, cat) in enumerate(g.categories)],
         # BB
-        Dict{Tuple{C,<:Function,C}, BetaBern{Bool, Int}}((g.categories[catidx], g.all_rules[ruleidx], g.categories[rhs]) => BetaBern(1, 1) for (rhss, comps) in g.binary_dict for rhs in rhss for (catidx, ruleidx) in comps),
+        Dict{Tuple{Int, Int, Int}, BetaBern{Bool, Int}}((catidx, ruleidx, rhs) => BetaBern(1, 1) for (rhss, comps) in g.binary_dict for rhs in rhss for (catidx, ruleidx) in comps),
         # Type (for trees, ffs)
-        t)
+        t,
+        # List of categories for sanity (will be Union{String, SubString{String}})
+        t[cat for cat in g.categories]
+        )
         # Instantiate CRPs
-        fg.CRP = Dict(cat => ChineseRest(a, b, BaseDistribution(fg, cat)) for cat in g.categories)
+        fg.CRP = ChineseRest{Fragment}[ChineseRest(a, b, BaseDistribution(fg, i, cat)) for (i, cat) in enumerate(g.categories)]
         fg
     end
 end
@@ -80,13 +93,12 @@ end
 function sample(basedist :: BaseDistribution)
     variables = Tree{basedist.fg.treeType}[]
     tree = Tree(basedist.category, basedist.fg.treeType)
-    get_rule(rules::Dict) = for (k, v) in rules if v == 1 return k end end
 
-    dm_sample = sample(basedist.fg.DM[basedist.category], 1) # sample from nothing in default case??? Fix this.
-    # dm_counts = collect(Pair{Function, Int}, dm_sample)
-    # local bb_counts = Tuple{Tuple{T,Function,T}, Bool}[]
+    get_ruleidx(rules::Dict) = for (k, v) in rules if v == 1 return k end end
 
-    r = get_rule(dm_sample)
+    dm_sample = sample(basedist.fg.DM[basedist.catidx], 1)
+    ruleidx = get_ruleidx(dm_sample)
+    r = basedist.fg.baseGrammar.all_rules[ruleidx]
     children = r(basedist.category)
     Ty = typeof(children)
 
@@ -94,9 +106,10 @@ function sample(basedist :: BaseDistribution)
 
     if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
         for child in children
-            bbidx = (basedist.category, r, child)
+            childidx = get_idx(basedist.fg.categories, child)
+            bbidx = (basedist.catidx, ruleidx, childidx)
             if (flip = sample(basedist.fg.BB[bbidx])) # if we extend the fragment
-                frag = sample(basedist.fg, child).fragment
+                frag = sample(basedist.fg, childidx).fragment
                 add_child!(tree, deepcopy(frag.tree))
                 # push!(tree.children, frag.tree)   # Only points toward the tree, its parent is still ::Nothing
                 append!(variables, frag.variables)
@@ -107,19 +120,19 @@ function sample(basedist :: BaseDistribution)
             end
         end
     else    # if unary (terminal) rule
-        if children in keys(basedist.fg.baseGrammar.terminal_dict) # if RHS is terminal
-            add_child!(tree, Tree(children, basedist.fg.treeType))
-        end
+        # if children in keys(basedist.fg.baseGrammar.terminal_dict) # if RHS is terminal
+        add_child!(tree, Tree(children, basedist.fg.treeType))
+        # end
     end
 
     return Fragment(tree, variables)
 end
 
-function sample(fg :: FragmentGrammar, category :: C) where C
-    fragment = sample(fg.CRP[category])
+function sample(fg :: FragmentGrammar, catidx :: Int) where C
+    fragment = sample(fg.CRP[catidx])
     children = Dict{Tree, Pointer}()
     for variable in fragment.variables
-        push!(children, variable => sample(fg, variable.value))
+        push!(children, variable => sample(fg, get_idx(fg.categories, variable.value)))
     end
     return Pointer(fragment, children)
 end
