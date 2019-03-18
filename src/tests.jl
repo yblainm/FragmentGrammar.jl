@@ -2,10 +2,8 @@
 # Tests #
 #########
 module tests
-using Base: to_index
-
+# include("CompoundDists.jl"); using .CompoundDists
 include("FragmentGrammars.jl"); using .FragmentGrammars
-using .FragmentGrammars: DummyDistribution
 using GeneralizedChartParsing
 using GeneralizedChartParsing.Trees
 include("parse_a_tree.jl")
@@ -17,9 +15,17 @@ using Profile
 # score = parse(g2, split(str))["S"].enum_forest.trees[1]
 
 println("Test run------------")
+some_tree = Tree("NP", Union{String, SubString{String}})
+add_child!(some_tree, Tree("D", Union{String, SubString{String}}))
+add_child!(some_tree, Tree("N", Union{String, SubString{String}}))
+
 @time fg = FragmentGrammar(g, Union{String, SubString{String}})
-# @show fg.categories
-@show sample(fg, 1)
+add_obs!(fg.CRP[2], Fragment(some_tree, some_tree.children))
+@show fg.CRP[2].tables
+@show @time sample(fg, 1)
+# for i in 1:100
+#     @time sample(fg,1)
+# end
 # @show @time sample(fg, 1)
 # @time Dict(i=>i for i in 1:100000)
 # @show @time sample(fg, 1) # 1.037180 seconds (1.98 M allocations: 98.387 MiB, 6.16% gc time)

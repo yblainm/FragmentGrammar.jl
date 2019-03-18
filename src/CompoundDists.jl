@@ -123,6 +123,9 @@ function rm_obs!(dm::DirMul, obs::AbstractDict)
     end
 end
 
+add_obs!(dc::DirMul{T}, obs::T) where T = dc.counts[obs] += 1
+rm_obs!(dc::DirMul{T}, obs::T) where T = dc.counts[obs] -= 1
+
 ###################################
 ### Dirichlet Categorical Class ###
 ###################################
@@ -225,7 +228,7 @@ function logscore(r::ChineseRest, dish)
     end
 end
 
-function add_obs!(r::ChineseRest, dish)
+function add_obs!(r::ChineseRest{Dish}, dish::Dish) where Dish
     r.num_customers += 1
     if !haskey(r.tables, dish)
         r.num_tables += 1
