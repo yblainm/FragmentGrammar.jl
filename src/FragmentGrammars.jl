@@ -17,31 +17,11 @@ export Analysis, BaseDistribution, Fragment, Pointer, FragmentGrammar, sample, C
 include("parse_a_tree.jl")
 
 ###########################
-# Dummy structs/functions #
+# Helper structs and functions #
 ###########################
 
 struct DummyDistribution{T} <: Distribution{T} end
 sample(dist::DummyDistribution{Tree}) = sampleTree(g, test_str)
-
-get_idx(A::AbstractArray{T,1}, i::T) where T = (
-    for (j,k) in enumerate(A)
-        if i == k
-            return j
-        end
-    end; error("element $i not found in $A")
-)
-
-################################
-# Fragment Grammar definitions #
-################################
-
-# TODO: initialize FG from a toy input grammar given in constructors
-#   - Add 1 count per PCFG rule by default (?)  DONE
-#   - FG initially has nothing in it, so given the input grammar, we can either
-#       add_obs!() or sample. Sampling makes most sense, and will add observations
-#       to the restaurants and BB (and DM).
-#   - This requires us to write the base distribution code. Should work according
-#       to Tim's book.
 
 struct Fragment
     tree :: Tree
@@ -70,6 +50,26 @@ struct Analysis # Is this struct even needed? It's basically a Tuple of what com
     # Should this be a dict though?
 end
 
+get_idx(A::AbstractArray{T,1}, i::T) where T = (
+    for (j,k) in enumerate(A)
+        if i == k
+            return j
+        end
+    end; error("element $i not found in $A")
+)
+
+################################
+# Fragment Grammar definitions #
+################################
+
+# TODO: initialize FG from a toy input grammar given in constructors
+#   - Add 1 count per PCFG rule by default (?)  DONE
+#   - FG initially has nothing in it, so given the input grammar, we can either
+#       add_obs!() or sample. Sampling makes most sense, and will add observations
+#       to the restaurants and BB (and DM).
+#   - This requires us to write the base distribution code. Should work according
+#       to Tim's book.
+
 mutable struct FragmentGrammar{C, D}
     baseGrammar :: Grammar{C}
     CRP :: Array{ChineseRest{Fragment},1}
@@ -84,8 +84,6 @@ struct BaseDistribution{C} <: Distribution{Fragment}
     catidx :: Int
     category :: C
 end
-
-# isapplicable(r, c) = r(c) !== nothing
 
 function FragmentGrammar(g :: Grammar{C}, t::Type) where C
     let a = 0.01, b = 0.2

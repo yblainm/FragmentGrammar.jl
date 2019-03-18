@@ -7,7 +7,14 @@ using GeneralizedChartParsing
 using GeneralizedChartParsing.Trees
 include("parse_a_tree.jl")
 
-using Profile
+using Profile # Lets you see how many backtraces (function calls) come from a specific code block during runtime. Good for finding bottlenecks.
+# EXAMPLE:
+# Profile.clear()  # in case we have any previous profiling data
+# @profile sample(fg, "S")
+# Profile.print()
+# OR
+# using ProfileView; ProfileView.view() # opens an interactive visualization instead of printing to stdout.
+#
 
 # str = "the dog paints prep dog"
 # g2 = add_score(g, :enum_forest, enum_forest_score)
@@ -21,7 +28,7 @@ add_child!(some_tree, Tree("N", Union{String, SubString{String}}))
 
 fg = FragmentGrammar(g, Union{String, SubString{String}})
 # add_obs!(fg.CRP[2], Fragment(some_tree, some_tree.children))
-for i in 1:100
+for i in 1:10
     @time add_obs!(fg, Analysis(sample(fg, 1)...))
 end
 println(fg.DM)
