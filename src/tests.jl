@@ -2,7 +2,6 @@
 # Tests #
 #########
 module tests
-# include("CompoundDists.jl"); using .CompoundDists
 include("FragmentGrammars.jl"); using .FragmentGrammars
 using GeneralizedChartParsing
 using GeneralizedChartParsing.Trees
@@ -15,14 +14,19 @@ using Profile
 # score = parse(g2, split(str))["S"].enum_forest.trees[1]
 
 println("Test run------------")
+
 some_tree = Tree("NP", Union{String, SubString{String}})
 add_child!(some_tree, Tree("D", Union{String, SubString{String}}))
 add_child!(some_tree, Tree("N", Union{String, SubString{String}}))
 
-@time fg = FragmentGrammar(g, Union{String, SubString{String}})
-add_obs!(fg.CRP[2], Fragment(some_tree, some_tree.children))
-@show fg.CRP[2].tables
-@show @time sample(fg, 1)
+fg = FragmentGrammar(g, Union{String, SubString{String}})
+# add_obs!(fg.CRP[2], Fragment(some_tree, some_tree.children))
+for i in 1:100
+    @time add_obs!(fg, Analysis(sample(fg, 1)...))
+end
+println(fg.DM)
+println(fg.BB)
+for rest in values(fg.CRP) println(rest.tables) end
 # for i in 1:100
 #     @time sample(fg,1)
 # end

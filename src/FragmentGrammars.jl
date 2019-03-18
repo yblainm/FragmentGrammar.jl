@@ -2,16 +2,16 @@ __precompile__()
 module FragmentGrammars
 
 
-# import Base: convert, promote_rule
+import Base: iterate, eltype, length, IteratorSize
 
 using GeneralizedChartParsing
 using GeneralizedChartParsing: isapplicable
 using GeneralizedChartParsing.Trees
 
 include("CompoundDists.jl"); using .CompoundDists
-import .CompoundDists: sample
+import .CompoundDists: sample, add_obs!, rm_obs!
 
-export BaseDistribution, Fragment, Pointer, FragmentGrammar, sample, ChineseRest, add_obs!
+export Analysis, BaseDistribution, Fragment, Pointer, FragmentGrammar, sample, ChineseRest, add_obs!, rm_obs, iterate
 # export convert
 
 include("parse_a_tree.jl")
@@ -53,17 +53,27 @@ struct Pointer
     children :: Dict{Tree, Pointer}
 end
 
+eltype(::Type{Pointer}) = Pointer
+IteratorSize(::Type{Pointer}) = Base.SizeUnknown()
+function iterate(frag_pointer::Pointer, state = [frag_pointer])
+    if isempty(state)
+        nothing
+    else
+        state[1], prepend!(state[2:end], collect(values(state[1].children)))
+    end
+end
+
 struct Analysis # Is this struct even needed? It's basically a Tuple of what comes out of FG sample
-    root_pointer :: Pointer
-    dm_counts :: Array{Pair{Int,Int},1}
-    bb_counts :: Array{Pair{Tuple{Int,Int,Int},Bool},1} # Julia uses a flyweight for these pairs!
+    pointer :: Pointer
+    dm_obs :: Array{Tuple{Int,Int},1}
+    bb_obs :: Array{Pair{Tuple{Int,Int,Int},Bool},1} # Julia uses a flyweight for these pairs!
     # Should this be a dict though?
 end
 
 mutable struct FragmentGrammar{C, D}
     baseGrammar :: Grammar{C}
     CRP :: Array{ChineseRest{Fragment},1}
-    DM :: Array{DirMul{Int, Float64},1}
+    DM :: Array{DirCat{Int, Float64},1}
     BB :: Dict{Tuple{Int, Int, Int}, BetaBern{Bool, Int}}
     treeType :: Type{D}
     categories :: Array{D,1}
@@ -83,7 +93,7 @@ function FragmentGrammar(g :: Grammar{C}, t::Type) where C
         # CRP
         ChineseRest{Fragment}[],
         # DM
-        DirMul{Int, Float64}[DirMul([i for (i, r) in enumerate(g.all_rules) if isapplicable(r, cat)]) for (j, cat) in enumerate(g.categories)],
+        DirCat{Int, Float64}[DirCat([i for (i, r) in enumerate(g.all_rules) if isapplicable(r, cat)]) for (j, cat) in enumerate(g.categories)],
         # BB
         Dict{Tuple{Int, Int, Int}, BetaBern{Bool, Int}}((catidx, ruleidx, rhs) => BetaBern(1, 1) for (rhss, comps) in g.binary_dict for rhs in rhss for (catidx, ruleidx) in comps),
         # Type (for trees, ffs)
@@ -101,13 +111,14 @@ function sample(basedist :: BaseDistribution)
     variables = Tree{basedist.fg.treeType}[]
     tree = Tree(basedist.category, basedist.fg.treeType)
 
-    get_ruleidx(rules::Dict) = for (k, v) in rules if v == 1 return k end end
+    # get_ruleidx(rules::Dict) = for (k, v) in rules if v == 1 return k end end
 
-    dm_sample = sample(basedist.fg.DM[basedist.catidx], 1)
-    dm_counts = collect(dm_sample)
+    dm_sample = sample(basedist.fg.DM[basedist.catidx])
+    dm_counts = Tuple{Int,Int}[]
+    push!(dm_counts, (basedist.catidx, dm_sample))
     bb_counts = Pair{Tuple{Int,Int,Int}, Bool}[]
-    ruleidx = get_ruleidx(dm_sample)
-    r = basedist.fg.baseGrammar.all_rules[ruleidx]
+    # ruleidx = get_ruleidx(dm_sample)
+    r = basedist.fg.baseGrammar.all_rules[dm_sample]
     children = r(basedist.category)
     Ty = typeof(children)
 
@@ -116,7 +127,7 @@ function sample(basedist :: BaseDistribution)
     if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
         for child in children
             childidx = get_idx(basedist.fg.categories, child)
-            bbidx = (basedist.catidx, ruleidx, childidx)
+            bbidx = (basedist.catidx, dm_sample, childidx)
             flip = sample(basedist.fg.BB[bbidx])
             push!(bb_counts, bbidx => flip)
             if flip # if we extend the fragment
@@ -140,6 +151,7 @@ function sample(basedist :: BaseDistribution)
     else    # if unary (terminal) rule
         # if children in keys(basedist.fg.baseGrammar.terminal_dict) # if RHS is terminal
         add_child!(tree, Tree(children, basedist.fg.treeType))
+        dm_counts = Tuple{Int,Int}[]
         bb_counts = Pair{Tuple{Int,Int,Int},Bool}[]
         # end
     end
@@ -160,13 +172,34 @@ function sample(fg :: FragmentGrammar, catidx :: Int) where C
     return Pointer(fragment, children), dm_counts, bb_counts
 end
 
-# function add_obs!(fg :: FragmentGrammar, analysis :: Analysis)
-#     # Add DM counts
-#     for dm_obs in analysis.dm_counts
-#         # add_obs!(fg.DM[dm_obs[1]], dm_obs[])
-#     end
-#     # Add BB counts
-#     # Add fragments to CRP
-# end
+function add_obs!(fg :: FragmentGrammar, analysis :: Analysis)
+    # Add DM counts
+    for dm_obs in analysis.dm_obs
+        add_obs!(fg.DM[dm_obs[1]], dm_obs[2])
+    end
+    # Add BB counts
+    for bb_obs in analysis.bb_obs
+        add_obs!(fg.BB[bb_obs[1]], bb_obs[2])
+    end
+    # Add fragments to CRP
+    for frag_ptr in analysis.pointer
+        add_obs!(fg.CRP[get_idx(fg.categories, frag_ptr.fragment.tree.value)], frag_ptr.fragment)
+    end
+end
+
+function rm_obs!(fg :: FragmentGrammar, analysis :: Analysis)
+    # Add DM counts
+    for dm_obs in analysis.dm_obs
+        rm_obs!(fg.DM[dm_obs[1]], dm_obs[2])
+    end
+    # Add BB counts
+    for bb_obs in analysis.bb_obs
+        rm_obs!(fg.BB[bb_obs[1]], bb_obs[2])
+    end
+    # Add fragments to CRP
+    for frag_ptr in analysis.pointer
+        rm_obs!(fg.CRP[get_idx(fg.categories, frag_ptr.fragment.tree.value)], frag_ptr.fragment)
+    end
+end
 
 end
