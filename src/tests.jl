@@ -22,18 +22,23 @@ using Profile # Lets you see how many backtraces (function calls) come from a sp
 
 println("Test run------------")
 
-some_tree = Tree("NP", Union{String, SubString{String}})
-add_child!(some_tree, Tree("D", Union{String, SubString{String}}))
-add_child!(some_tree, Tree("N", Union{String, SubString{String}}))
+# some_tree = Tree("NP", Union{String, SubString{String}})
+# add_child!(some_tree, Tree("D", Union{String, SubString{String}}))
+# add_child!(some_tree, Tree("N", Union{String, SubString{String}}))
 
 fg = FragmentGrammar(g, Union{String, SubString{String}})
 # add_obs!(fg.CRP[2], Fragment(some_tree, some_tree.children))
-for i in 1:10
-    @time add_obs!(fg, Analysis(sample(fg, 1)...))
+analyses = Analysis[]
+for i in 1:1000
+    anly = Analysis(sample(fg, rand(1:4))...)
+    push!(analyses, anly)
+    @time add_obs!(fg, anly)
 end
 println(fg.DM)
 println(fg.BB)
 for rest in values(fg.CRP) println(rest.tables) end
+
+println(last(analyses))
 # for i in 1:100
 #     @time sample(fg,1)
 # end

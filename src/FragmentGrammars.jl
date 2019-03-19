@@ -75,7 +75,7 @@ mutable struct FragmentGrammar{C, D}
     CRP :: Array{ChineseRest{Fragment},1}
     DM :: Array{DirCat{Int, Float64},1}
     BB :: Dict{Tuple{Int, Int, Int}, BetaBern{Bool, Int}}
-    treeType :: Type{D}
+    treeType :: Type{D} # TODO Try using valtype(<object>) throughout instead?
     categories :: Array{D,1}
 end
 
