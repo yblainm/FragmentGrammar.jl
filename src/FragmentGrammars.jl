@@ -62,13 +62,14 @@ get_idx(A::AbstractArray{T,1}, i::T) where T = (
 # Fragment Grammar definitions #
 ################################
 
-# TODO: initialize FG from a toy input grammar given in constructors
-#   - Add 1 count per PCFG rule by default (?)  DONE
-#   - FG initially has nothing in it, so given the input grammar, we can either
-#       add_obs!() or sample. Sampling makes most sense, and will add observations
-#       to the restaurants and BB (and DM).
-#   - This requires us to write the base distribution code. Should work according
-#       to Tim's book.
+# TODO: -Fragment can't keep track of what terminals they have, only the unary terminal rules' LHSs.
+#       -Their approx. PCFG rules MUST NOT contain the terminals themselves!
+#       -All terminal rules must be unary. The parser automatically completes these to begin with.
+#       -What if we have "N --> hand" and "T --> hand" and a fragment with a "N --> hand" terminal?
+#           -Say we're parsing and the leaves contain "N --> hand". If we can complete this with our
+#               N --> hand fragment, can't we complete any N? Basically our fragment loses its terminal, no?
+#           -This isn't actually important, is it?
+#       -In any case this means we can only replace terminals with a unique unary rule when the terminals appear in a binary rule. Otherwise we keep it as is. Basically just CNF, right?
 
 mutable struct FragmentGrammar{C, D}
     baseGrammar :: Grammar{C}
@@ -120,8 +121,6 @@ function sample(basedist :: BaseDistribution)
     children = r(basedist.category)
     Ty = typeof(children)
 
-    # TODO Maybe I can use Base.deepcopy(x) to make trees and what not
-
     if Ty <: Tuple  # if binary rule (implies RHS is non-terminal)
         for child in children
             childidx = get_idx(basedist.fg.categories, child)
@@ -146,8 +145,8 @@ function sample(basedist :: BaseDistribution)
                 add_child!(tree, variable_tree)
             end
         end
-    else    # if unary (terminal) rule
-        # if children in keys(basedist.fg.baseGrammar.terminal_dict) # if RHS is terminal
+    else # if unary (terminal) rule
+        # TODO To work with the parser, fragments (or at least their PCFG rules) can't have terminals in them...
         add_child!(tree, Tree(children, basedist.fg.treeType))
         dm_counts = Tuple{Int,Int}[]
         bb_counts = Pair{Tuple{Int,Int,Int},Bool}[]

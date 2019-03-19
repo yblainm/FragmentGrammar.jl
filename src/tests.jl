@@ -25,9 +25,11 @@ println("Test run------------")
 # some_tree = Tree("NP", Union{String, SubString{String}})
 # add_child!(some_tree, Tree("D", Union{String, SubString{String}}))
 # add_child!(some_tree, Tree("N", Union{String, SubString{String}}))
+# add_obs!(fg.CRP[2], Fragment(some_tree, some_tree.children))
 
 fg = FragmentGrammar(g, Union{String, SubString{String}})
-# add_obs!(fg.CRP[2], Fragment(some_tree, some_tree.children))
+# @show fg
+# @show fg.baseGrammar.start_categories
 analyses = Analysis[]
 for i in 1:1000
     anly = Analysis(sample(fg, rand(1:4))...)
@@ -37,8 +39,8 @@ end
 println(fg.DM)
 println(fg.BB)
 for rest in values(fg.CRP) println(rest.tables) end
+println(rand(analyses))
 
-println(last(analyses))
 # for i in 1:100
 #     @time sample(fg,1)
 # end

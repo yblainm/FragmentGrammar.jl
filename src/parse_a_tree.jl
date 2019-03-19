@@ -10,7 +10,7 @@
 #     P --> prep
 #     """
 # );
-g = grammar_from_string(
+g = grammar_from_string( # N --> T1 and so on don't work ; T1 treated as a terminal!
     """
     N --> hand | size | ADJ T6 | V T9
     ADJ --> great | N T7 | V T8
@@ -20,7 +20,7 @@ g = grammar_from_string(
     T2 --> size
     T3 --> great
     T4 --> drench
-    T5 --> late
+    T5 --> very
     T6 --> +ness
     T7 --> +y
     T8 --> +ed
@@ -29,6 +29,7 @@ g = grammar_from_string(
     T11 --> +ly
     """
 );
+g.start_categories = g.categories[1:4]
 
 test_str = "hand +y"
 
