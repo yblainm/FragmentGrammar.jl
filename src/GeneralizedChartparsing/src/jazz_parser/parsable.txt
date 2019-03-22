@@ -1,0 +1,161 @@
+id	parsable	title
+1	true	26-2
+2	true	500 Miles High
+3	true	502 Blues
+4	true	52nd Street Theme
+1	true	26-2
+2	true	500 Miles High
+3	true	502 Blues
+4	true	52nd Street Theme
+5	false	9.20 Special
+6	false	Ac-Cent-Tchu-Ate the Positive
+7	true	Across The Valley From The Alamo
+8	false	Adam's Apple
+9	true	A Felicidade
+10	true	Afro Blue
+11	false	Afro Centric
+12	false	Afternoon In Paris
+13	true	After You
+14	false	After You've Gone
+15	true	Again
+16	true	Agua De Beber
+17	false	Ain't Misbehavin'
+18	false	Ain't She Sweet
+19	false	Airegin
+20	false	Airmail Special
+21	false	Aisha
+22	true	Alexander's Ragtime Band
+23	false	Alfie
+24	true	Alfie's Theme
+25	true	Alice In Wonderland
+26	false	All About Ronnie
+27	false	All Alone
+28	false	All Blues
+29	true	All God's Chillun Got Rhythm
+30	false	All My Tomorrows
+31	true	All Of A Sudden My Heart Sings
+32	false	All Of Me
+33	true	All Of You
+34	false	All Or Nothing At All
+35	false	All The Things You Are
+36	false	All The Way
+37	true	All Through The Day
+38	false	All Through The Night
+39	false	All Too Soon
+40	false	Almost Like Being In Love
+41	false	Alone Together
+42	false	Alone Too Long
+43	false	Along Came Betty
+44	false	Always
+45	false	Am I Blue?
+46	false	Among My Souvenirs
+47	false	Amor
+48	true	Ana Maria
+49	false	And On The Third Day
+50	false	And The Angels Sing
+51	true	Angel Eyes
+52	true	Anthropology
+53	false	Anything Goes
+54	true	April In Paris
+55	false	April Joy
+56	true	Aren't You Glad You're You
+57	false	Armando's Rhumba
+58	true	Ask Me Now
+59	false	As Long As I Live
+60	false	As Time Goes By
+61	false	At Last
+62	false	At Long Last Love
+63	false	Autumn In New York
+64	false	Autumn Leaves
+65	true	Avalon
+66	false	Ba-lue Bolivar Ba-lues-are
+67	false	Backstage Sally
+68	false	Bags' Groove
+69	false	Ballad, A
+70	true	Ballade
+71	false	Baltimore Oriole
+72	false	Barbados
+73	true	Bark For Barksdale
+74	false	Basin Street Blues
+75	true	Baubles, Bangles And Beads
+76	true	Be-Bop
+77	true	Beatrice
+78	false	Beautiful Friendship, A
+79	true	Beautiful Love
+80	false	Beauty And The Beast
+81	false	Be Careful It's My Heart
+82	true	Begin The Beguine
+83	false	Bein' Green
+84	true	Bemsha Swing
+85	true	Be My Love
+86	true	Benny's Tune
+87	true	Bernie's Tune
+88	false	Besame Mucho
+89	false	Bessie's Blues
+90	false	Bess You Is My Woman
+91	true	Best Is Yet To Come
+92	true	Best Is Yet To Come 2
+93	true	Best Thing For You Is Me, The
+94	true	Best Things In Life Are Free, The
+95	true	Better Than Anything
+96	false	Between The Devil And The Deep Blue Sea
+97	false	Bewitched
+98	false	Beyond The Blue Horizon
+99	true	Beyond The Sea
+100	true	Bidin' My Time
+101	false	Bill Bailey
+102	false	Billie's Bounce
+103	false	Billy Boy
+104	false	Birk's Works
+105	false	Birth Of The Blues, The
+106	false	Black And Blue
+107	false	Blackberry Winter
+108	false	Black Coffee
+109	true	Black Narcissus
+110	false	Black Nile
+111	false	Blame It On My Youth
+112	false	Bloom, Rube
+113	false	Bloomdido
+114	false	Blossom Fell, A
+115	true	Blue (And Broken Hearted)
+116	false	Blue And Sentimental
+117	true	Blueberry Hill
+118	false	Blue Bossa
+119	false	Blue Champagne
+120	true	Blue Daniel
+121	false	Blue In Green
+122	true	Blue Lou
+123	false	Blue Moon
+124	false	 Blue Room, The
+125	false	Bluesette
+126	false	Blues Five Spot
+127	false	Blues For Alice
+128	true	Blues For Wood
+129	false	Blues In The Closet
+130	true	Blues In The Night
+131	false	Blue Skies
+132	false	Blues March
+133	false	Blue Sphere
+134	true	Blue Turning Grey Over You
+135	false	Body And Soul
+136	true	Bohemia After Dark
+137	false	Bolivia
+138	true	Boo Boo's Birthday
+139	false	Booker's Waltz
+140	true	Boplicity
+141	false	Born To Be Blue
+142	true	Bossa Antigua
+143	true	Bouncin' With Bud
+144	false	Bourbon Street Parade
+145	true	Boy Next Door
+146	false	Brazil (Aquarela Do Brasil)
+147	true	Brazilian Like
+148	true	Brazilian Suite
+149	false	Breeze And I, The
+150	true	Bright Boy
+151	true	Bright Mississippi
+152	true	Bright Size Life
+153	true	Brilliant Corners
+154	true	Broadway
+155	false	Brotherhood Of Man
+156	true	Budo
