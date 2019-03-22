@@ -1,6 +1,6 @@
 module Trees
-
-importall Base
+using ForceImport
+@force using Base
 
 export Tree, EmptyTree, TreeNode,
        isterminal, insert_child!,
@@ -10,25 +10,25 @@ export Tree, EmptyTree, TreeNode,
 
 abstract type Tree{T} end
 
-type EmptyTree{T} <: Tree{T}
+mutable struct EmptyTree{T} <: Tree{T}
 end
 
-type TreeNode{T} <: Tree{T}
+mutable struct TreeNode{T} <: Tree{T}
   data    ::T
   parent  ::Tree{T}
   children::Vector{TreeNode{T}}
 end
 
-isterminal{T}(tree::TreeNode{T}) = isempty(tree.children)
+isterminal(tree::TreeNode{T}) where T = isempty(tree.children)
 
-TreeNode{T}(data::T, parent::Tree{T}) = TreeNode(data, parent, Vector{TreeNode{T}}())
+TreeNode(data::T, parent::Tree{T}) where T = TreeNode(data, parent, Vector{TreeNode{T}}())
 
 # TreeNode{T}(data::T, parent::Tree{T}) = TreeNode(data, parent, Vector{TreeNode{T}}())
 TreeNode(data, T=typeof(data)) = TreeNode(data, EmptyTree{T}())
 
-show{T}(io::IO, tree::EmptyTree{T}) = print(io::IO, "[]")
+show(io::IO, tree::EmptyTree{T}) where T = print(io::IO, "[]")
 
-function show{T}(io::IO, tree::TreeNode{T})
+function show(io::IO, tree::TreeNode{T}) where T
   print(io, "[", tree.data)
   for child in tree.children
     print(io, child)
@@ -36,7 +36,7 @@ function show{T}(io::IO, tree::TreeNode{T})
   print(io, "]")
 end
 
-function insert_child!{T}(tree::TreeNode{T}, data::T)
+function insert_child!(tree::TreeNode{T}, data::T) where T
   push!(tree.children, TreeNode(data, tree))
 end
 
@@ -121,11 +121,11 @@ end
 parenthesis_to_brackets(str::String) =
   replace(replace(str, "(", "["), ")", "]")
 
-start{T}(tree::TreeNode{T}) = [tree]
-next{T}(::TreeNode{T}, list::Vector{TreeNode{T}}) =
+start(tree::TreeNode{T}) where T = [tree]
+next(::TreeNode{T}, list::Vector{TreeNode{T}}) where T =
   list[1], prepend!(list[2:end], list[1].children)
-done{T}(::TreeNode{T}, list::Vector{TreeNode{T}}) = isempty(list)
-eltype{T}(::Type{TreeNode{T}}) = TreeNode{T}
+done(::TreeNode{T}, list::Vector{TreeNode{T}}) where T = isempty(list)
+eltype(::Type{TreeNode{T}}) where T = TreeNode{T}
 
 length(tree::TreeNode) =
     isterminal(tree) ? 1 : 1 + sum(length(c) for c in tree.children)

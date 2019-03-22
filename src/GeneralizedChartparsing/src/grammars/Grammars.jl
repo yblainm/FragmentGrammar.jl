@@ -2,7 +2,7 @@
 ### Rule classes ###
 ####################
 
-immutable ContextFreeRule{C1,C2}
+struct ContextFreeRule{C1,C2}
     lhs :: C1                # left hand side
     rhs :: Tuple{Vararg{C2}} # right hand side
 end
@@ -36,7 +36,7 @@ isapplicable(r::ContextFreeRule, cat) = lhs(r) == cat
 domain(r::ContextFreeRule) = r.lhs
 
 # R is the rule Type
-immutable MetaRule{R}
+struct MetaRule{R}
     name  :: String
     rules :: Vector{R}
 end
@@ -102,7 +102,7 @@ domain(mr::MetaRule) = [domain(r) for r in mr]
 ###################
 
 # States are hashed by their object ID
-type State{C, CR} # category and rule
+mutable struct State{C, CR} # category and rule
     comp    :: Vector{Tuple{C, CR}}  # completions: tuples of categories and rules
     trans   :: Dict{C, State{C, CR}} # possible transitions
     isfinal :: Bool
@@ -124,7 +124,7 @@ is_possible_transition(grammar, state, cat) = is_possible_transition(state, cat)
 transition(state::State, cat) = state.trans[cat]
 transition(grammar, state, cat) = transition(state, cat)
 
-function add_rule!{C,CR}(state::State{C,CR}, rule, head, cats)
+function add_rule!(state::State{C,CR}, rule, head, cats) where {C,CR}
     s = state
     for c in cats
         if is_possible_transition(s, c)
@@ -141,7 +141,7 @@ end
 ### Grammar Class ###
 #####################
 
-type Grammar{C, T, CR, TR, S, Cond}
+mutable struct Grammar{C, T, CR, TR, S, Cond}
     startstate    :: State{C, CR}
     startsymbols  :: Vector{C}
     terminal_dict :: Dict{T, Vector{Tuple{C, TR}}}
@@ -149,34 +149,34 @@ type Grammar{C, T, CR, TR, S, Cond}
     prior_cond    :: Cond # needed for GibbsSampling
 end
 
-Grammar{C, T, CR, TR, Cond}(startstate    :: State{C, CR},
+Grammar(startstate    :: State{C, CR},
                             startsymbols  :: Vector{C},
                             terminal_dict :: Dict{T, Vector{Tuple{C, TR}}},
                             rule_cond     :: Cond,
                             prior_cond    :: Cond,
-                            Score         :: DataType) =
+                            Score         :: DataType) where {C, T, CR, TR, Cond} =
     Grammar{C, T, CR, TR, Score, Cond}(startstate,
                                        startsymbols,
                                        terminal_dict,
                                        rule_cond,
                                        prior_cond)
 
-category_type{C, T, CR, TR, S, Cond}(grammar::Grammar{C, T, CR, TR, S, Cond}) = C
-terminal_type{C, T, CR, TR, S, Cond}(grammar::Grammar{C, T, CR, TR, S, Cond}) = T
-category_rule_type{C, T, CR, TR, S, Cond}(grammar::Grammar{C, T, CR, TR, S, Cond}) = CR
-terminal_rule_type{C, T, CR, TR, S, Cond}(grammar::Grammar{C, T, CR, TR, S, Cond}) = TR
-score_type{C, T, CR, TR, S, Cond}(grammar::Grammar{C, T, CR, TR, S, Cond}) = S
+category_type(grammar::Grammar{C, T, CR, TR, S, Cond}) where {C, T, CR, TR, S, Cond} = C
+terminal_type(grammar::Grammar{C, T, CR, TR, S, Cond}) where {C, T, CR, TR, S, Cond} = T
+category_rule_type(grammar::Grammar{C, T, CR, TR, S, Cond}) where {C, T, CR, TR, S, Cond} = CR
+terminal_rule_type(grammar::Grammar{C, T, CR, TR, S, Cond}) where {C, T, CR, TR, S, Cond} = TR
+score_type(grammar::Grammar{C, T, CR, TR, S, Cond}) where {C, T, CR, TR, S, Cond} = S
 state_type(grammar) = typeof(startstate(grammar))
 
-show{C, T, CR, TR, Cond}(io::IO, grammar::Grammar{C, T, CR, TR, Cond}) =
-    print("Grammar{$C, $T, $(CR), $(TR), $(Cond)}()")
+# show(io::IO, grammar::Grammar{C, T, CR, TR, Cond}) where {C, T, CR, TR, Cond} =
+#     print("Grammar{$C, $T, $(CR), $(TR), $(Cond)}()")
 
 # terminal rules must be unary
-function Grammar{C,T}(category_rules::Vector{MetaRule{ContextFreeRule{C,C}}},
+function Grammar(category_rules::Vector{MetaRule{ContextFreeRule{C,C}}},
                       terminal_rules::Vector{MetaRule{ContextFreeRule{C,T}}},
                       startsymbols,
                       Score,
-                      dependent_components::Function)
+                      dependent_components::Function) where {C,T}
     CR = MetaRule{ContextFreeRule{C,C}}
     TR = MetaRule{ContextFreeRule{C,T}}
 
@@ -229,10 +229,10 @@ function Grammar{C,T}(category_rules::Vector{MetaRule{ContextFreeRule{C,C}}},
     Grammar(startstate, startsymbols, terminal_dict, rule_cond, prior_cond, Score)
 end
 
-function Grammar{C,T}(category_rules::Vector{ContextFreeRule{C,C}},
+function Grammar(category_rules::Vector{ContextFreeRule{C,C}},
                       terminal_rules::Vector{ContextFreeRule{C,T}},
                       startsymbols,
-                      Score)
+                      Score) where {C,T}
     CR = ContextFreeRule{C,C}
     TR = ContextFreeRule{C,T}
 
@@ -296,19 +296,22 @@ function Grammar(rules_string::AbstractString, startsymbols, Score=LogProb)
     Grammar(category_rules, terminal_rules, startsymbols, Score)
 end
 
-function Grammar{S<:AbstractString, T<:AbstractString}(
+FixStringType = Union{Char, String, SubString{String}}
+
+function Grammar(
         category_rules_stringlists::Vector{Vector{S}},
         terminal_rules_stringlists::Vector{Vector{T}},
         startsymbols,
         Score
-    )
-    if parse(category_rules_stringlists[1][1]) isa Symbol
+    ) where {S<:AbstractString, T<:AbstractString}
+
+    if Meta.parse(category_rules_stringlists[1][1]) isa Symbol
         category_rules = [
-            ContextFreeRule{String, String}(s[1], (s[2:end]...))
+            ContextFreeRule{FixStringType, FixStringType}(s[1], (s[2:end]...))
             for s in category_rules_stringlists
         ]
         terminal_rules = [
-            ContextFreeRule{String, String}(s[1], (s[2:end]...))
+            ContextFreeRule{FixStringType, FixStringType}(s[1], (s[2:end]...))
             for s in terminal_rules_stringlists
         ]
         all_rules = [category_rules; terminal_rules]
@@ -337,7 +340,7 @@ function Grammar{S<:AbstractString, T<:AbstractString}(
             for cat in nonterminal_cats
             )
         )
-        terminal_dict = Dict{String, Vector{Tuple{String, ContextFreeRule{String,String}}}}()
+        terminal_dict = Dict{FixStringType, Vector{Tuple{FixStringType, ContextFreeRule{FixStringType,FixStringType}}}}()
         for r in terminal_rules
             t = rhs(r)[1]
             if haskey(terminal_dict, t)
@@ -347,17 +350,17 @@ function Grammar{S<:AbstractString, T<:AbstractString}(
             end
         end
 
-        startstate = State(String, ContextFreeRule{String,String})
+        startstate = State(FixStringType, ContextFreeRule{FixStringType,FixStringType})
         for r in category_rules
             add_rule!(startstate, r, lhs(r), rhs(r))
         end
     else
         category_rules_with_probs = [
-            (ContextFreeRule{String,String}(s[2],(s[3:end]...)), LogProb(eval(parse(s[1]))))
+            (ContextFreeRule{FixStringType,FixStringType}(s[2],Tuple{FixStringType}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
             for s in category_rules_stringlists
         ]
         terminal_rules_with_probs = [
-            (ContextFreeRule{String,String}(s[2],(s[3:end]...)), LogProb(eval(parse(s[1]))))
+            (ContextFreeRule{FixStringType,FixStringType}(s[2],Tuple{FixStringType}(s[3:end]...)), LogProb(eval(Meta.parse(s[1]))))
             for s in terminal_rules_stringlists
         ]
         all_rules_with_probs = [category_rules_with_probs;terminal_rules_with_probs]
@@ -374,7 +377,7 @@ function Grammar{S<:AbstractString, T<:AbstractString}(
             for cat in unique(map(x->lhs(x[1]), all_rules_with_probs))
         ))
 
-        terminal_dict = Dict{String, Vector{Tuple{String, ContextFreeRule{String,String}}}}()
+        terminal_dict = Dict{FixStringType, Vector{Tuple{FixStringType, ContextFreeRule{FixStringType,FixStringType}}}}()
         for (r,p) in terminal_rules_with_probs
             t = rhs(r)[1]
             if haskey(terminal_dict, t)
@@ -384,33 +387,33 @@ function Grammar{S<:AbstractString, T<:AbstractString}(
             end
         end
 
-        startstate = State(String, ContextFreeRule{String,String})
+        startstate = State(FixStringType, ContextFreeRule{FixStringType,FixStringType})
         for (r,p) in category_rules_with_probs
             add_rule!(startstate, r, lhs(r), rhs(r))
         end
     end
 
-    Grammar(startstate, startsymbols, terminal_dict, rule_cond, prior_cond, Score)
+    Grammar(startstate, append!(FixStringType[], startsymbols), terminal_dict, rule_cond, prior_cond, Score)
 end
 
 dependent_components(str::String) = str
 
 # Score == LogProb
-completions{C, T, CR, TR, Cond}(grammar::Grammar{C, T, CR, TR, LogProb, Cond}, state::State) =
+completions(grammar::Grammar{C, T, CR, TR, LogProb, Cond}, state::State) where {C, T, CR, TR, Cond} =
     ((cat, mr, prob(grammar, cat, mr)) for (cat, mr) in completions(state))
-completions{C, T, CR, TR, Cond}(grammar::Grammar{C, T, CR, TR, LogProb, Cond}, t::T) =
+completions(grammar::Grammar{C, T, CR, TR, LogProb, Cond}, t::T) where {C, T, CR, TR, Cond} =
     ((cat, rule, prob(grammar, cat, rule)) for (cat, rule) in grammar.terminal_dict[t])
 
 # Score is a Integer
-completions{C, T, CR, TR, S <: Integer, Cond}(grammar::Grammar{C, T, CR, TR, S, Cond}, state::State) =
+completions(grammar::Grammar{C, T, CR, TR, S, Cond}, state::State) where {C, T, CR, TR, S <: Integer, Cond} =
     ((cat, mr, one(S)) for (cat, mr) in completions(state))
-completions{C, T, CR, TR, S <: Integer, Cond}(grammar::Grammar{C, T, CR, TR, S, Cond}, t::T) =
+completions(grammar::Grammar{C, T, CR, TR, S, Cond}, t::T) where {C, T, CR, TR, S <: Integer, Cond} =
     ((cat, rule, one(S)) for (cat, rule) in grammar.terminal_dict[t])
 
 # Score == Product{LogProb,BigInt}
-completions{C, T, CR, TR, Cond}(grammar::Grammar{C, T, CR, TR, Product{LogProb,BigInt}, Cond}, state::State) =
+completions(grammar::Grammar{C, T, CR, TR, Product{LogProb,BigInt}, Cond}, state::State) where {C, T, CR, TR, Cond} =
     ((cat, mr, Product(prob(grammar, cat, mr),BigInt(1))) for (cat, mr) in completions(state))
-completions{C, T, CR, TR, Cond}(grammar::Grammar{C, T, CR, TR, Product{LogProb,BigInt}, Cond}, t::T) =
+completions(grammar::Grammar{C, T, CR, TR, Product{LogProb,BigInt}, Cond}, t::T) where {C, T, CR, TR, Cond} =
     ((cat, rule, Product(prob(grammar, cat, rule),BigInt(1))) for (cat, rule) in grammar.terminal_dict[t])
 
 startstate(grammar::Grammar) = grammar.startstate

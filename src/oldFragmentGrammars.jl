@@ -1,11 +1,12 @@
 __precompile__()
 module FragmentGrammars
 
+include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 
 import Base: iterate, eltype, length, IteratorSize
 
-using GeneralizedChartParsing
-using GeneralizedChartParsing: isapplicable
+# using GeneralizedChartParsing
+# using GeneralizedChartParsing: isapplicable
 using GeneralizedChartParsing.Trees
 
 include("CompoundDists.jl"); using .CompoundDists
@@ -62,14 +63,7 @@ get_idx(A::AbstractArray{T,1}, i::T) where T = (
 # Fragment Grammar definitions #
 ################################
 
-# TODO: -Fragment can't keep track of what terminals they have, only the unary terminal rules' LHSs.
-#       -Their approx. PCFG rules MUST NOT contain the terminals themselves!
-#       -All terminal rules must be unary. The parser automatically completes these to begin with.
-#       -What if we have "N --> hand" and "T --> hand" and a fragment with a "N --> hand" terminal?
-#           -Say we're parsing and the leaves contain "N --> hand". If we can complete this with our
-#               N --> hand fragment, can't we complete any N? Basically our fragment loses its terminal, no?
-#           -This isn't actually important, is it?
-#       -In any case this means we can only replace terminals with a unique unary rule when the terminals appear in a binary rule. Otherwise we keep it as is. Basically just CNF, right?
+# TODO:
 
 mutable struct FragmentGrammar{C, D}
     baseGrammar :: Grammar{C}

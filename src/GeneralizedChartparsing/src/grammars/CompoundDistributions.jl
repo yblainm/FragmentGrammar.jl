@@ -80,7 +80,7 @@ function sample(dm::DirMul, n)
     d
 end
 
-function logscore(dm::DirMul, obs::Associative)
+function logscore(dm::DirMul, obs::AbstractDict)
     n = sum(values(obs))
     LogProb(
         log(n) + lbeta(sum(values(dm.counts)), n) -
@@ -91,13 +91,13 @@ function logscore(dm::DirMul, obs::Associative)
     )
 end
 
-function add_obs!(dm::DirMul, obs::Associative)
+function add_obs!(dm::DirMul, obs::AbstractDict)
     for x in keys(obs)
         dm.counts[x] += obs[x]
     end
 end
 
-function rm_obs!(dm::DirMul, obs::Associative)
+function rm_obs!(dm::DirMul, obs::AbstractDict)
     for x in keys(obs)
         dm.counts[x] -= obs[x]
     end
@@ -184,7 +184,7 @@ rm_obs!(dc::DirCatVarArith, obs) = dc.counts[obs] -= 1
 ### Categorical Distribution Class ###
 ######################################
 
-type CatDist{T} <: Distribution{T}
+mutable struct CatDist{T} <: Distribution{T}
     probs :: Dict{T, LogProb}
 end
 
@@ -286,7 +286,7 @@ mutable struct SimpleCond{C, D, S} # context, distribution, support
     support :: S
 end
 
-SimpleCond(dists::Associative) = SimpleCond(
+SimpleCond(dists::AbstractDict) = SimpleCond(
     dists,
     vcat([collect(support(dist)) for dist in values(dists)]...)
 )
@@ -297,7 +297,7 @@ sample(sc::SimpleCond, context, args...) = sample(sc.dists[context], args...)
 logscore(sc::SimpleCond, obs, context) = logscore(sc.dists[context], obs)
 rm_obs!(sc::SimpleCond, obs, context) = rm_obs!(sc.dists[context], obs)
 
-function add_obs!{C,D,S}(cond::SimpleCond{C,D,S}, obs, context)
+function add_obs!(cond::SimpleCond{C,D,S}, obs, context) where {C,D,S}
     if !haskey(cond.dists, context)
         cond.dists[context] = D(cond.support)
     end

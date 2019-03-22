@@ -11,11 +11,12 @@ const MAX_POP_NUMBER = 4
 ####################
 ### Dependencies ###
 ####################
+using ForceImport
 
-importall Base # must be concretized
+@force using Base # must be concretized
 # importall Base.Collections
 
-importall DataStructures
+@force using DataStructures
 
 using Missings
 using LogProbs
@@ -55,9 +56,9 @@ export single_fold_cross_validation,
        model_evaluation
 
 # WSJ methods
-export read_treebank_grammar,
-       compute_treebank_scores,
-       treebank_goldstandard_scores
+# export read_treebank_grammar,
+#        compute_treebank_scores,
+#        treebank_goldstandard_scores
 
 # grammar mathods
 export Grammar,
@@ -71,12 +72,12 @@ export Grammar,
        LexicalItem
 
 # jazz grammar methods
-export make_jazz_grammar,
-       make_plain_PCFG_jazz_grammar,
-       make_terminals,
-       pitch_class,
-       Terminal,
-       make_parsable_trees
+# export make_jazz_grammar,
+#        make_plain_PCFG_jazz_grammar,
+#        make_terminals,
+#        pitch_class,
+#        Terminal,
+#        make_parsable_trees
 
 # Tree Class types and methods
 export TreeNode,
@@ -101,44 +102,44 @@ export category_type,
        isfinal
 
 # vb_update
-export expected_lexitem_counts,
-       expected_lexitem_counts_by_category,
-       expected_lexitem_counts_by_sentence,
-       makeLexicon_andCorpus,
-       makeLexicon_test,
-       variational_inference,
-       variational_inference_full_corpus_parallel,
-       variational_inference_full_corpus,
-       load_lexicon,
-       sample_counts
+# export expected_lexitem_counts,
+#        expected_lexitem_counts_by_category,
+#        expected_lexitem_counts_by_sentence,
+#        makeLexicon_andCorpus,
+#        makeLexicon_test,
+#        variational_inference,
+#        variational_inference_full_corpus_parallel,
+#        variational_inference_full_corpus,
+#        load_lexicon,
+#        sample_counts
 
 
-# UD corpus
-export read_corpus,
-       read_sentences,
-       get_sentences,
-       CoNLLUCorpus,
-       CoNLLUSentence,
-       CoNLLUWord,
-       evaluate_dependencies,
-       make_lexicon_from_corpus_all_combinations,
-       unkify!,
-       parse_given_dependencies,
-       kullback_leibler,
-       uptorank,
-       compare_compactness
+# # UD corpus
+# export read_corpus,
+#        read_sentences,
+#        get_sentences,
+#        CoNLLUCorpus,
+#        CoNLLUSentence,
+#        CoNLLUWord,
+#        evaluate_dependencies,
+#        make_lexicon_from_corpus_all_combinations,
+#        unkify!,
+#        parse_given_dependencies,
+#        kullback_leibler,
+#        uptorank,
+#        compare_compactness
 
 # lexicon.jl
-export make_feature_list,
-       remove_duplicates!,
-       remove_vacuous_nullheads!
+# export make_feature_list,
+#        remove_duplicates!,
+#        remove_vacuous_nullheads!
 
 # evaluation
-export precision,
-       recall,
-       parse_and_evaluate_corpus,
-       parse_and_show_results,
-       vblearn_parse_and_show_results
+# export precision,
+#        recall,
+#        parse_and_evaluate_corpus,
+#        parse_and_show_results,
+#        vblearn_parse_and_show_results
 
 # dependencies
 export head,
@@ -152,18 +153,18 @@ export head,
        tikzdependency
 
 # Forward sampler for MG
-export SampleGrammar,
-       SampleDerivation,
-       find_selectors,
-       treeRootC,
-       probDerivation,
-       samplerMGderivation,
-       getsent_fromderiv,
-       sample_corpus,
-       corpus_without_duplicates,
-       write_probs,
-       write_sentence_probs,
-       write_sentence_probs_ranked
+# export SampleGrammar,
+#        SampleDerivation,
+#        find_selectors,
+#        treeRootC,
+#        probDerivation,
+#        samplerMGderivation,
+#        getsent_fromderiv,
+#        sample_corpus,
+#        corpus_without_duplicates,
+#        write_probs,
+#        write_sentence_probs,
+#        write_sentence_probs_ranked
 
 
 ##################
@@ -175,34 +176,34 @@ include(joinpath("tools", "code_tools.jl"))
 include(joinpath("semi_rings", "ProductSemiRings.jl"))
 
 include(joinpath("tools", "Trees.jl"))
-using GeneralizedChartparsing.Trees
+using .Trees
 include(joinpath("tools", "tree_to_dependency_matrix.jl"))
 include(joinpath("tools", "tree_evaluation.jl"))
 
 # include(joinpath("grammars", "UrnModels.jl"))
 include(joinpath("grammars", "CompoundDistributions.jl"))
 #using GeneralizedChartparsing.CompoundDistributions
-importall GeneralizedChartparsing.CompoundDistributions # Grammars.jl uses logscore
+@force using .CompoundDistributions # Grammars.jl uses logscore
 include(joinpath("grammars", "Grammars.jl"))
-include(joinpath("grammars", "parameter_learning.jl"))
+# include(joinpath("grammars", "parameter_learning.jl"))
 
-include(joinpath("minimalist", "MinimalistGrammar.jl"))
-include(joinpath("minimalist", "counts.jl"))
-include(joinpath("minimalist", "lexicon.jl"))
-include(joinpath("minimalist", "dependencies.jl"))
-include(joinpath("minimalist", "forwardsampler_MG.jl"))
+# include(joinpath("minimalist", "MinimalistGrammar.jl"))
+# include(joinpath("minimalist", "counts.jl"))
+# include(joinpath("minimalist", "lexicon.jl"))
+# include(joinpath("minimalist", "dependencies.jl"))
+# include(joinpath("minimalist", "forwardsampler_MG.jl"))
 include(joinpath("parser", "parser_types.jl"))
 include(joinpath("parser", "parser_methods.jl"))
-
-include(joinpath("jazz_applications", "music_data_types.jl"))
-include(joinpath("jazz_applications", "JazzGrammars.jl"))
-include(joinpath("jazz_applications", "single_fold_cross_validation.jl"))
-include(joinpath("jazz_applications", "boxplot.jl"))
-include(joinpath("jazz_applications", "model_evaluation.jl"))
-
-include(joinpath("WSJ", "WSJ_methods.jl"))
-
-include(joinpath("tools", "corpus.jl"))
-include(joinpath("minimalist", "interface_parser_vb_update.jl"))
+#
+# include(joinpath("jazz_applications", "music_data_types.jl"))
+# include(joinpath("jazz_applications", "JazzGrammars.jl"))
+# include(joinpath("jazz_applications", "single_fold_cross_validation.jl"))
+# include(joinpath("jazz_applications", "boxplot.jl"))
+# include(joinpath("jazz_applications", "model_evaluation.jl"))
+#
+# include(joinpath("WSJ", "WSJ_methods.jl"))
+#
+# include(joinpath("tools", "corpus.jl"))
+# include(joinpath("minimalist", "interface_parser_vb_update.jl"))
 
 end # module

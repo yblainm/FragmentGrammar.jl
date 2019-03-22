@@ -79,7 +79,7 @@ outsidepopnumber(item::Item) = item.outsidepopnumber
 ### Edge class ###
 ##################
 
-type Edge{St,S} <: Item
+mutable struct Edge{St,S} <: Item
     start              :: Int
     tail               :: Int
     state              :: St
@@ -97,7 +97,7 @@ type Edge{St,S} <: Item
 end
 Edge(start, tail, state, traversals::Vector, id, score) =
     Edge(start, tail, state, score, false, traversals, id, score, score, 0, 0, false, Dict{Tuple{Int, Int}, LogProb}(), Dict{Int, LogProb}())
-Edge{S}(start, tail, state, traversal::Traversal{S}, id) =
+Edge(start, tail, state, traversal::Traversal{S}, id) where S =
     Edge(start, tail, state, [traversal], id, zero(S))
 Edge(key::EdgeKey, traversal::Traversal, id, grammar) =
     Edge(start(key), tail(key), state(key), traversal, id)
@@ -130,14 +130,14 @@ end
 ### Constituent class ###
 #########################
 
-type Constituent{C,T,CR,TR,S} <: Item
+mutable struct Constituent{C,T,CR,TR,S} <: Item
     start               :: Int
     tail                :: Int
     cat                 :: C
     score               :: S
     isfinished          :: Bool
     completions         :: Vector{EdgeCompletion{CR,S}}
-    terminal_completion :: Nullable{TerminalCompletion{T,TR,S}}
+    terminal_completion :: Union{Nothing, Some{TerminalCompletion{T,TR,S}}}
     id                  :: Int # constituents have negative ids
     lastpopscore        :: S
     lastoutsidepopscore :: S
@@ -206,7 +206,7 @@ end
 ### ParserLogbook class ###
 ###########################
 
-type ParserLogbook{C,T,CR,TR,St,S}
+mutable struct ParserLogbook{C,T,CR,TR,St,S}
     edges :: Vector{Edge{St,S}}
     conss :: Vector{Constituent{C,T,CR,TR,S}}
     edgeids :: Dict{EdgeKey{St}, Int}
@@ -247,7 +247,7 @@ get_item(logbook, key::ConsKey) = get_cons(logbook, logbook.consids[key])
 
 # maybe be used in a future implementation, maybe not
 "like normal merge, but value vectors with the same key will be concatenated"
-function Base.merge{K,V}(dicts::Dict{K,Vector{V}}...)
+function Base.merge(dicts::Dict{K,Vector{V}}...) where {K,V}
     result = Dict{K,Vector{V}}()
     for d in dicts
         for (key,valvec) in d # key and value vector
@@ -261,14 +261,14 @@ function Base.merge{K,V}(dicts::Dict{K,Vector{V}}...)
     result
 end
 
-type ChartCell{C,St}
+mutable struct ChartCell{C,St}
     edgeids :: Dict{St, Vector{Int}}
     consids :: Dict{C, Vector{Int}}
 end
 ChartCell(C, St) =
     ChartCell(Dict{St, Vector{Int}}(), Dict{C, Vector{Int}}())
 
-type Chart{C,St}
+mutable struct Chart{C,St}
     cells :: Vector{ChartCell{C,St}}
 end
 edgeids(chart, edge::Edge) = chart.cells[tail(edge)].edgeids
@@ -335,13 +335,13 @@ priority(agenda::Agenda{Float64}, item, just_used) =
 ### ParseForest class ###
 ##########################
 
-type ParseForest{C,T,CR,TR,St,S}
+mutable struct ParseForest{C,T,CR,TR,St,S}
     heads :: Vector{Constituent{C,T,CR,TR,S}}
     logbook :: ParserLogbook{C,T,CR,TR,St,S}
     terminals :: Vector{T}
 end
 
-function ParseForest{C,T,CR,TR,St,S}(chart::Chart, logbook::ParserLogbook{C,T,CR,TR,St,S}, terminals, grammar)
+function ParseForest(chart::Chart, logbook::ParserLogbook{C,T,CR,TR,St,S}, terminals, grammar) where {C,T,CR,TR,St,S}
     heads = Constituent{C,T,CR,TR,S}[]
     cell = chart.cells[1]
     for cat in startsymbols(grammar)
@@ -396,7 +396,7 @@ inside = prob
     end
 end
 
-function calculate_outside_probs_and_expected_rule_usages!{C,T,CR,TR,St,S}(f::ParseForest{C,T,CR,TR,St,S}, grammar)
+function calculate_outside_probs_and_expected_rule_usages!(f::ParseForest{C,T,CR,TR,St,S}, grammar) where {C,T,CR,TR,St,S}
     @assert is_complete(f)
     outside_agenda = OutsideAgenda()
     # mapping categories to rules to (startindex,endindex) to probabilities
@@ -531,7 +531,7 @@ function calculate_outside_probs_and_expected_rule_usages!{C,T,CR,TR,St,S}(f::Pa
     )
 end
 
-function calculate_outside_probs_and_expected_rule_usages!{C,T,CR,TR,S,Cond}(sent :: Vector{T}, grammar :: Grammar{C,T,CR,TR,S,Cond})
+function calculate_outside_probs_and_expected_rule_usages!(sent :: Vector{T}, grammar :: Grammar{C,T,CR,TR,S,Cond}) where {C,T,CR,TR,S,Cond}
     forest = run_chartparser(sent, grammar)
     d = calculate_outside_probs_and_expected_rule_usages!(forest, grammar)
     (forest, d)
@@ -542,7 +542,7 @@ function best_tree(f::ParseForest)
     best_tree(f, f.heads[findmax(map(prob, f.heads))[2]])
 end
 
-function best_tree{C,T,CR,TR,St,S}(f::ParseForest{C,T,CR,TR,St,S}, cons::Constituent)
+function best_tree(f::ParseForest{C,T,CR,TR,St,S}, cons::Constituent) where {C,T,CR,TR,St,S}
     if has_terminal(cons)
         TreeNode((cons,rule(terminal_completion(cons))),
                  Tuple{Constituent{C,T,CR,TR,S}, Union{CR,TR}})
@@ -574,7 +574,7 @@ function sample_tree(f::ParseForest)
     sample_tree(f, head)
 end
 
-function sample_tree{C,T,CR,TR,St,S}(f::ParseForest{C,T,CR,TR,St,S}, cons::Constituent)
+function sample_tree(f::ParseForest{C,T,CR,TR,St,S}, cons::Constituent) where{C,T,CR,TR,St,S}
     if has_terminal(cons)
         TreeNode((cons,rule(terminal_completion(cons))),
                  Tuple{Constituent{C,T,CR,TR,S}, Union{CR,TR}})

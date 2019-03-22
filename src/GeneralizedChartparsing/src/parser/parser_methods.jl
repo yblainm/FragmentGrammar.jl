@@ -163,7 +163,7 @@ run_chartparser(input::Vector, grammar, parsing_method=:full; epsilon=missing) =
     run_chartparser(input, grammar, trues(length(input)+1, length(input)+1), parsing_method, epsilon=epsilon)
 
 function run_chartparser(input::Vector, grammar, dependency_matrix::AbstractMatrix{Bool}, parsing_method=:full; epsilon=missing)
-    input = map(terminal_type(grammar), input) :: Vector{terminal_type(grammar)}
+    # input = map(terminal_type(grammar), input) :: Vector{terminal_type(grammar)}
     chart, agenda, logbook = initialize(input, grammar, parsing_method, epsilon)
     while !isempty(agenda)
         # finish = do inference and insert or accumulate
