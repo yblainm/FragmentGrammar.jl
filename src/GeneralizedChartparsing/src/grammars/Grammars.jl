@@ -168,8 +168,8 @@ terminal_rule_type(grammar::Grammar{C, T, CR, TR, S, Cond}) where {C, T, CR, TR,
 score_type(grammar::Grammar{C, T, CR, TR, S, Cond}) where {C, T, CR, TR, S, Cond} = S
 state_type(grammar) = typeof(startstate(grammar))
 
-# show(io::IO, grammar::Grammar{C, T, CR, TR, Cond}) where {C, T, CR, TR, Cond} =
-#     print("Grammar{$C, $T, $(CR), $(TR), $(Cond)}()")
+show(io::IO, grammar::Grammar{C, T, CR, TR, Cond}) where {C, T, CR, TR, Cond} =
+    print("Grammar{$C, $T, $(CR), $(TR), $(Cond)}()")
 
 # terminal rules must be unary
 function Grammar(category_rules::Vector{MetaRule{ContextFreeRule{C,C}}},
@@ -296,7 +296,7 @@ function Grammar(rules_string::AbstractString, startsymbols, Score=LogProb)
     Grammar(category_rules, terminal_rules, startsymbols, Score)
 end
 
-FixStringType = Union{Char, String, SubString{String}}
+FixStringType = Union{String, SubString{String}}
 
 function Grammar(
         category_rules_stringlists::Vector{Vector{S}},
@@ -360,7 +360,7 @@ function Grammar(
             for s in category_rules_stringlists
         ]
         terminal_rules_with_probs = [
-            (ContextFreeRule{FixStringType,FixStringType}(s[2],Tuple{FixStringType}(s[3:end]...)), LogProb(eval(Meta.parse(s[1]))))
+            (ContextFreeRule{FixStringType,FixStringType}(s[2],Tuple{FixStringType}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
             for s in terminal_rules_stringlists
         ]
         all_rules_with_probs = [category_rules_with_probs;terminal_rules_with_probs]
