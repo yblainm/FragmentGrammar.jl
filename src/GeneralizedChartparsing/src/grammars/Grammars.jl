@@ -296,8 +296,6 @@ function Grammar(rules_string::AbstractString, startsymbols, Score=LogProb)
     Grammar(category_rules, terminal_rules, startsymbols, Score)
 end
 
-FixStringType = String#Union{String, SubString{String}}
-
 function Grammar(
         category_rules_stringlists::Vector{Vector{S}},
         terminal_rules_stringlists::Vector{Vector{T}},
@@ -307,11 +305,11 @@ function Grammar(
 
     if Meta.parse(category_rules_stringlists[1][1]) isa Symbol
         category_rules = [
-            ContextFreeRule{FixStringType, FixStringType}(s[1], (s[2:end]...))
+            ContextFreeRule{String, String}(s[1], (s[2:end]...))
             for s in category_rules_stringlists
         ]
         terminal_rules = [
-            ContextFreeRule{FixStringType, FixStringType}(s[1], (s[2:end]...))
+            ContextFreeRule{String, String}(s[1], (s[2:end]...))
             for s in terminal_rules_stringlists
         ]
         all_rules = [category_rules; terminal_rules]
@@ -340,7 +338,7 @@ function Grammar(
             for cat in nonterminal_cats
             )
         )
-        terminal_dict = Dict{FixStringType, Vector{Tuple{FixStringType, ContextFreeRule{FixStringType,FixStringType}}}}()
+        terminal_dict = Dict{String, Vector{Tuple{String, ContextFreeRule{String,String}}}}()
         for r in terminal_rules
             t = rhs(r)[1]
             if haskey(terminal_dict, t)
@@ -350,17 +348,17 @@ function Grammar(
             end
         end
 
-        startstate = State(FixStringType, ContextFreeRule{FixStringType,FixStringType})
+        startstate = State(String, ContextFreeRule{String,String})
         for r in category_rules
             add_rule!(startstate, r, lhs(r), rhs(r))
         end
     else
         category_rules_with_probs = [
-            (ContextFreeRule{FixStringType,FixStringType}(s[2],Tuple{FixStringType}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
+            (ContextFreeRule{String,String}(s[2],Tuple{String}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
             for s in category_rules_stringlists
         ]
         terminal_rules_with_probs = [
-            (ContextFreeRule{FixStringType,FixStringType}(s[2],Tuple{FixStringType}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
+            (ContextFreeRule{String,String}(s[2],Tuple{String}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
             for s in terminal_rules_stringlists
         ]
         all_rules_with_probs = [category_rules_with_probs;terminal_rules_with_probs]
@@ -377,7 +375,7 @@ function Grammar(
             for cat in unique(map(x->lhs(x[1]), all_rules_with_probs))
         ))
 
-        terminal_dict = Dict{FixStringType, Vector{Tuple{FixStringType, ContextFreeRule{FixStringType,FixStringType}}}}()
+        terminal_dict = Dict{String, Vector{Tuple{String, ContextFreeRule{String,String}}}}()
         for (r,p) in terminal_rules_with_probs
             t = rhs(r)[1]
             if haskey(terminal_dict, t)
@@ -387,13 +385,13 @@ function Grammar(
             end
         end
 
-        startstate = State(FixStringType, ContextFreeRule{FixStringType,FixStringType})
+        startstate = State(String, ContextFreeRule{String,String})
         for (r,p) in category_rules_with_probs
             add_rule!(startstate, r, lhs(r), rhs(r))
         end
     end
 
-    Grammar(startstate, append!(FixStringType[], startsymbols), terminal_dict, rule_cond, prior_cond, Score)
+    Grammar(startstate, startsymbols, terminal_dict, rule_cond, prior_cond, Score)
 end
 
 dependent_components(str::String) = str
