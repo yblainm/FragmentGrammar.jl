@@ -192,6 +192,7 @@ include(joinpath("grammars", "Grammars.jl"))
 # include(joinpath("minimalist", "lexicon.jl"))
 # include(joinpath("minimalist", "dependencies.jl"))
 # include(joinpath("minimalist", "forwardsampler_MG.jl"))
+using Nullables
 include(joinpath("parser", "parser_types.jl"))
 include(joinpath("parser", "parser_methods.jl"))
 #

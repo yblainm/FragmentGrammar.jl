@@ -267,8 +267,8 @@ function Grammar(
         Score
     )
     Grammar(
-        map(x->map(string, x), map(split, split(category_rules_string, "\n"))),
-        map(x->map(string, x), map(split, split(terminal_rules_string, "\n"))),
+        map(x->String.(x), map(split, split(category_rules_string, "\n"))),
+        map(x->String.(x), map(split, split(terminal_rules_string, "\n"))),
         startsymbols,
         Score
     )
@@ -305,11 +305,11 @@ function Grammar(
 
     if Meta.parse(category_rules_stringlists[1][1]) isa Symbol
         category_rules = [
-            ContextFreeRule{String, String}(s[1], (s[2:end]...))
+            ContextFreeRule{String, String}(s[1], Tuple{String, Vararg{String}}(s[2:end]))
             for s in category_rules_stringlists
         ]
         terminal_rules = [
-            ContextFreeRule{String, String}(s[1], (s[2:end]...))
+            ContextFreeRule{String, String}(s[1], Tuple{String, Vararg{String}}(s[2:end]))
             for s in terminal_rules_stringlists
         ]
         all_rules = [category_rules; terminal_rules]
@@ -354,11 +354,11 @@ function Grammar(
         end
     else
         category_rules_with_probs = [
-            (ContextFreeRule{String,String}(s[2],Tuple{String}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
+            (ContextFreeRule{String,String}(s[2],Tuple{String, Vararg{String}}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
             for s in category_rules_stringlists
         ]
         terminal_rules_with_probs = [
-            (ContextFreeRule{String,String}(s[2],Tuple{String}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
+            (ContextFreeRule{String,String}(s[2],Tuple{String, Vararg{String}}(s[3:end])), LogProb(eval(Meta.parse(s[1]))))
             for s in terminal_rules_stringlists
         ]
         all_rules_with_probs = [category_rules_with_probs;terminal_rules_with_probs]

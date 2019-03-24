@@ -17,7 +17,7 @@ function create_or_update!(key::EdgeKey, trav, agenda, logbook, grammar)
         edge = Edge(key, trav, 0, grammar) # 0 is just a placeholder for the real id
         discover!(logbook, edge)           # that is corrected by `discover!`
     end
-    enqueue!(agenda, edge, false) ::Void
+    enqueue!(agenda, edge, false) #::Void
     nothing
 end
 
@@ -169,13 +169,13 @@ function run_chartparser(input::Vector, grammar, dependency_matrix::AbstractMatr
         # finish = do inference and insert or accumulate
         id = dequeue!(agenda)
         if id > 0 # then id is an edge id
-            finish!(get_edge(logbook, id), chart, agenda, logbook, grammar)::Void
+            finish!(get_edge(logbook, id), chart, agenda, logbook, grammar)#::Void
         else
             cons = get_cons(logbook, id)
             # println(dependency_matrix[start(cons), tail(cons)])
             if dependency_matrix[start(cons), tail(cons)]
                 # println(cons)
-                finish!(cons, chart, agenda, logbook, grammar)::Void
+                finish!(cons, chart, agenda, logbook, grammar)#::Void
 
                 if parsing_method == :viterbi && length(cons) == length(input) && cat(cons) in startsymbols(grammar)
                     break
