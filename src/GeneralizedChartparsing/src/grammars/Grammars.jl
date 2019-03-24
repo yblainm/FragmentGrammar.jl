@@ -267,8 +267,8 @@ function Grammar(
         Score
     )
     Grammar(
-        map(split, split(category_rules_string, "\n")),
-        map(split, split(terminal_rules_string, "\n")),
+        map(x->map(string, x), map(split, split(category_rules_string, "\n"))),
+        map(x->map(string, x), map(split, split(terminal_rules_string, "\n"))),
         startsymbols,
         Score
     )
@@ -296,7 +296,7 @@ function Grammar(rules_string::AbstractString, startsymbols, Score=LogProb)
     Grammar(category_rules, terminal_rules, startsymbols, Score)
 end
 
-FixStringType = Union{String, SubString{String}}
+FixStringType = String#Union{String, SubString{String}}
 
 function Grammar(
         category_rules_stringlists::Vector{Vector{S}},

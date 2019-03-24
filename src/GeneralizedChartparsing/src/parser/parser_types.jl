@@ -137,7 +137,7 @@ mutable struct Constituent{C,T,CR,TR,S} <: Item
     score               :: S
     isfinished          :: Bool
     completions         :: Vector{EdgeCompletion{CR,S}}
-    terminal_completion :: Union{Nothing, Some{TerminalCompletion{T,TR,S}}}
+    terminal_completion :: Union{TerminalCompletion{T,TR,S}, Nothing}
     id                  :: Int # constituents have negative ids
     lastpopscore        :: S
     lastoutsidepopscore :: S
@@ -150,11 +150,11 @@ Constituent(st,ta,ca,co,te,id,sc) =
     Constituent(st,ta,ca,sc,false,co,te,id,sc,sc,0,0,false,Dict{Tuple{Int, Int}, LogProb}())
 function Constituent(start, tail, cat, comp::EdgeCompletion, id, grammar)
     T, TR, S = terminal_type(grammar), terminal_rule_type(grammar), score_type(grammar)
-    Constituent(start, tail, cat, [comp], Nullable{TerminalCompletion{T, TR, S}}(), id, zero(S))
+    Constituent(start, tail, cat, [comp], nothing, id, zero(S))
 end
 function Constituent(start, tail, cat, comp::TerminalCompletion, id, grammar)
     CR, S = category_rule_type(grammar), score_type(grammar)
-    Constituent(start, tail, cat, Vector{EdgeCompletion{CR,S}}(), Nullable(comp), id, zero(S))
+    Constituent(start, tail, cat, Vector{EdgeCompletion{CR,S}}(), comp, id, zero(S))
 end
 Constituent(key::ConsKey, comp, id, grammar) =
     Constituent(start(key), tail(key), cat(key), comp, id, grammar)

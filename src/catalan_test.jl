@@ -14,5 +14,8 @@ function catalan_test(n_max)
     return true
 end
 
-number_parses(n::Int, grammar) = score(run_chartparser(["a" for i in 1:n], grammar))
+input = Union{String, SubString{String}}["a" for i in 1:10]
+@show input
+@show [(typeof(i), i) for i in input]
+number_parses(n::Int, grammar) = score(run_chartparser(Union{String, SubString{String}}["a" for i in 1:n], grammar))
 catalan_number(n::Int) = div(factorial(BigInt(2*n)), factorial(BigInt(n+1)) * factorial(BigInt(n)))
