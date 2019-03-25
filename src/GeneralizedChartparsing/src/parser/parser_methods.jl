@@ -111,7 +111,7 @@ function complete_edge!(edge::Edge, agenda, logbook, grammar)
     nothing
 end
 
-Base.isapprox(x::LogProb, y::LogProb) = abs(x.value-y.value) < LOGSPACE_THRESHOLD
+Base.isapprox(x::LogProb, y::LogProb) = abs(x.log-y.log) < LOGSPACE_THRESHOLD
 
 function finish!(edge::Edge, chart, agenda, logbook, grammar)
     edge.insidepopnumber += 1

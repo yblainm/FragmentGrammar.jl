@@ -149,7 +149,6 @@ end
 Constituent(st,ta,ca,co,te,id,sc) =
     Constituent(st,ta,ca,sc,false,co,te,id,sc,sc,0,0,false,Dict{Tuple{Int, Int}, LogProb}())
 function Constituent(start, tail, cat, comp::EdgeCompletion, id, grammar)
-    C, CR = category_type(grammar), category_rule_type(grammar)
     T, TR, S = terminal_type(grammar), terminal_rule_type(grammar), score_type(grammar)
     Constituent(start, tail, cat, [comp], Nullable{TerminalCompletion{T,TR,S}}(), id, zero(S))
 end

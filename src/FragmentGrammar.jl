@@ -1,5 +1,5 @@
 __precompile__()
-module FragmentGrammar
+module FragmentGrammars
 
 export Analysis, BaseDistribution, Fragment, Pointer, FragmentGrammar, sample, ChineseRest, add_obs!, rm_obs, iterate
 
@@ -7,6 +7,8 @@ import Base: iterate, eltype, length, IteratorSize
 
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
+using .GeneralizedChartparsing.Trees
+using .GeneralizedChartparsing: ContextFreeRule
 
 include("CompoundDists.jl");
 using .CompoundDists
@@ -19,6 +21,8 @@ using .CompoundDists
 #   -Presumably a completion dict as a field of the FG
 ### Grammar-parser interface
 ```The parser interacts with the grammar using the following functions.
+
+(SEE /src/GeneralizedChartparsing/src/grammars/grammar_interface.jl)
 
 startstate(grammar)
 startsymbols(grammar)
@@ -74,6 +78,10 @@ get_idx(A::AbstractArray{T,1}, i::T) where T = (
 ################################
 # Fragment Grammar definitions #
 ################################
+
+mutable struct FragmentGrammar
+
+end
 
 struct BaseDistribution{C} <: Distribution{Fragment}
     fg :: FragmentGrammar{C}
