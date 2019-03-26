@@ -79,18 +79,25 @@ get_idx(A::AbstractVector{T}, i::T) where T = (
 # Fragment Grammar definitions #
 ################################
 
-mutable struct FragmentGrammar{C, CR, T, TR, Sc, S}
+mutable struct FragmentGrammar{C, CR, T, TR, S, Sc}
     categories :: Vector{C}
     startcategories :: Vector{C}
     category_rules :: Vector{CR}
     terminals :: Vector{T}
     terminal_rules :: Vector{TR}
-    Score :: Sc
     startstate :: S
     terminal_dict :: Dict{T, Vector{C, TR}}
     CRP :: Vector{ChineseRest{Fragment}}
-    DM :: Vector{DirCat{Int, Float64}}
-    BB :: Dict{Tuple{Int, Tuple{Vararg{Int}}}, BetaBern{Bool, Int}}
+    DM :: Vector{DirCat{C, Float64}}
+    BB :: Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}
+end
+
+function FragmentGrammar(cats::Vector{C}, start::Vector{C}, cat_rules::Vector{CR}, terms:: Vector{T}, term_rules::Vector{TR}, ScoreType::DataType) where {C, CR, T, TR}
+    startstate = State(C, CR)
+    for r in cat_rules
+        add_rule!(startstate, r, lhs(r), rhs(r))
+    end
+    FragmentGrammar()
 end
 
 struct BaseDistribution{C} <: Distribution{Fragment}
