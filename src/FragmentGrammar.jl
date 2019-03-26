@@ -51,6 +51,12 @@ struct Pointer
     children :: Dict{Tree, Pointer}
 end
 
+struct Analysis # Is this struct even needed? It's basically a Tuple of what comes out of FG sample
+    pointer :: Pointer
+    dm_obs :: Vector{Tuple{Int,Int}}
+    bb_obs :: Vector{Pair{Tuple{Int,Tuple{Vararg{Int}}},Bool}}
+end
+
 eltype(::Type{Pointer}) = Pointer
 IteratorSize(::Type{Pointer}) = Base.SizeUnknown()
 function iterate(frag_pointer::Pointer, state = [frag_pointer])
@@ -61,18 +67,27 @@ function iterate(frag_pointer::Pointer, state = [frag_pointer])
     end
 end
 
-struct Analysis # Is this struct even needed? It's basically a Tuple of what comes out of FG sample
-    pointer :: Pointer
-    dm_obs :: Vector{Tuple{Int,Int}}
-    bb_obs :: Vector{Pair{Tuple{Int,Tuple{Vararg{Int}}},Bool}}
-end
-
 get_idx(A::AbstractVector{T}, i::T) where T = (
     for (j,k) in enumerate(A)
         if i == k
             return j
         end
     end; error("element $i not found in $A")
+)
+
+# Basically copied from add_rule! in GeneralizedChartparsing/src/Grammars.jl
+rm_rule!(state::State{C,CR}, rule, head, cats) where {C,CR} =
+(
+    s = state
+    for c in cats
+        if is_possible_transition(s, c)
+            s = transition(s, c)
+        else
+            s.isfinal = false
+            s = s.trans[c] = State(C, CR)
+        end
+    end
+    filter!(x -> x≠(head, rule), s.comp, )
 )
 
 ################################
@@ -92,12 +107,20 @@ mutable struct FragmentGrammar{C, CR, T, TR, S, Sc}
     BB :: Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}
 end
 
-function FragmentGrammar(cats::Vector{C}, start::Vector{C}, cat_rules::Vector{CR}, terms:: Vector{T}, term_rules::Vector{TR}, ScoreType::DataType) where {C, CR, T, TR}
+function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms:: Vector{T}, term_rules::Vector{TR}, ScoreType::DataType) where {C, CR, T, TR}
+
     startstate = State(C, CR)
     for r in cat_rules
         add_rule!(startstate, r, lhs(r), rhs(r))
     end
-    FragmentGrammar()
+
+    CRP = ChineseRest{Fragment}[]
+
+    DM = DirCat{C, Float64}[DirCat([r for (i, r) in enumerate(cat_rules) if isapplicable(r, cat)]) for (j, cat) in enumerate(cats)],
+
+    BB = Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}((r.lhs, r, rhs) => BetaBern(1, 1) for r in cat_rules for rhs in r.rhs)
+
+    FragmentGrammar(
 end
 
 struct BaseDistribution{C} <: Distribution{Fragment}
