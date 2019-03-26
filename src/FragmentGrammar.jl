@@ -8,7 +8,7 @@ import Base: iterate, eltype, length, IteratorSize
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
 using .GeneralizedChartparsing.Trees
-using .GeneralizedChartparsing: ContextFreeRule
+using .GeneralizedChartparsing: ContextFreeRule, add_rule!
 
 include("CompoundDists.jl");
 using .CompoundDists
@@ -43,7 +43,7 @@ The file 'src/parser/parser_types.jl' contains the type declarations of traversa
 ###########################
 struct Fragment
     tree :: Tree
-    variables :: Array{Tree,1}
+    variables :: Vector{Tree}
 end
 
 struct Pointer
@@ -63,11 +63,11 @@ end
 
 struct Analysis # Is this struct even needed? It's basically a Tuple of what comes out of FG sample
     pointer :: Pointer
-    dm_obs :: Array{Tuple{Int,Int},1}
-    bb_obs :: Array{Pair{Tuple{Int,Int,Int},Bool},1}
+    dm_obs :: Vector{Tuple{Int,Int}}
+    bb_obs :: Vector{Pair{Tuple{Int,Tuple{Vararg{Int}}},Bool}}
 end
 
-get_idx(A::AbstractArray{T,1}, i::T) where T = (
+get_idx(A::AbstractVector{T}, i::T) where T = (
     for (j,k) in enumerate(A)
         if i == k
             return j
@@ -79,8 +79,18 @@ get_idx(A::AbstractArray{T,1}, i::T) where T = (
 # Fragment Grammar definitions #
 ################################
 
-mutable struct FragmentGrammar
-
+mutable struct FragmentGrammar{C, CR, T, TR, Sc, S}
+    categories :: Vector{C}
+    startcategories :: Vector{C}
+    category_rules :: Vector{CR}
+    terminals :: Vector{T}
+    terminal_rules :: Vector{TR}
+    Score :: Sc
+    startstate :: S
+    terminal_dict :: Dict{T, Vector{C, TR}}
+    CRP :: Vector{ChineseRest{Fragment}}
+    DM :: Vector{DirCat{Int, Float64}}
+    BB :: Dict{Tuple{Int, Tuple{Vararg{Int}}}, BetaBern{Bool, Int}}
 end
 
 struct BaseDistribution{C} <: Distribution{Fragment}
