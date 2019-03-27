@@ -109,10 +109,10 @@ mutable struct State{C, CR} # category and rule
 end
 
 function show(io::IO, state::State)
-    print(io ,"State(")
-    for comp in state.comp print(io, comp, ", ") end
-    for t in state.trans print(io, t, ", ") end
-    println(io, state.isfinal, ")")
+    print(io ,"State()")
+    # for comp in state.comp print(io, comp, ", ") end
+    # for t in state.trans print(io, t, ", ") end
+    # println(io, state.isfinal, ")")
 end
 
 State(C, CR) = State(Vector{Tuple{C, CR}}(), Dict{C, State{C, CR}}(), true)

@@ -90,6 +90,9 @@ rhs(r::AbstractRule) = r.rhs
 (r::FragmentRule)(cat) = r.rhs
 (r::FragmentRule)() = r.rhs
 
+show(io::IO, r::AbstractRule{C1,C2}) where {C1,C2} =
+print("AbstractRule($(lhs(r)),$(rhs(r)))")
+
 eltype(::Type{Pointer}) = Pointer
 IteratorSize(::Type{Pointer}) = Base.SizeUnknown()
 function iterate(frag_pointer::Pointer, state = [frag_pointer])
@@ -142,6 +145,9 @@ mutable struct FragmentGrammar{C, CR, T, TR}
     BB :: Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}
 end
 
+show(io::IO, fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} =
+    print("FragmentGrammar{$C, $(CR), $T, $(TR)}()")
+
 category_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = C
 terminal_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = T
 category_rule_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = CR
@@ -157,8 +163,11 @@ completions(fg::FragmentGrammar, state::State) =
     ((cat, r, prob(grammar, cat, r)) for (cat, r) in completions(state))
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
     ((cat, rule, prob(grammar, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
-prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule) =
-    logscore(grammar.rule_cond, rule, dependent_components(cat))
+prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::BaseRule{C,C}) where {C, CR, T, TR} =
+    new_table_logscore(fg.CRP[cat]) * logscore(fg.DM[cat], rule)
+
+prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::FragmentRule{C,C}) where {C, CR, T, TR} =
+    logscore(fg.CRP[cat], fragment(rule))
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
 """
@@ -210,6 +219,8 @@ struct BaseDistribution{C} <: Distribution{Fragment}
     category :: C
 end
 
+show(io::IO, bd::BaseDistribution{C}) where C = print("BaseDistribution{$C}()")
+
 function sample(basedist :: BaseDistribution)
     C, CR, T, TR = category_type(basedist.fg), category_rule_type(basedist.fg), terminal_type(basedist.fg), terminal_rule_type(basedist.fg)
 
@@ -231,6 +242,7 @@ function sample(basedist :: BaseDistribution)
         if child in basedist.fg.preterminals
             # Make a leaf node (non-variable)
             leaf_tree = TreeNode(child)
+            insert_child!(tree, leaf_tree)
             push!(leaves, leaf_tree)
         else
             bbidx = (basedist.category, dm_sample, child)

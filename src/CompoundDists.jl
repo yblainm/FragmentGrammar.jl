@@ -210,6 +210,13 @@ function sample(r::ChineseRest)
     end
 end
 
+function new_table_logscore(r::ChineseRest)
+    new_table_prob = LogProb(
+        log(r.num_tables * r.a + r.b) - log(r.num_customers + r.b),
+        islog=true
+    )
+end
+
 function new_table_logscore(r::ChineseRest, dish)
     new_table_prob = LogProb(
         log(r.num_tables * r.a + r.b) - log(r.num_customers + r.b),

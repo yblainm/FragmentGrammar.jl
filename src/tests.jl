@@ -22,26 +22,26 @@ using .FragmentGrammars: category_rule_type
 println("-----start-----")
 fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))])
 
-for tr in fg.startstate.trans
-    println(tr)
-end
-
-println("-----analysis-----")
+# for tr in fg.startstate.trans
+#     println(tr)
+# end
+#
+# println("-----analysis-----")
 anal = Analysis(sample(fg, "S")...) # lol
-println(anal)
-
-println("-----add-----")
+# println(anal)
+#
+# println("-----add-----")
 add_obs!(fg, anal)
-for tr in fg.startstate.trans
-    println(tr)
-end
-
-println("-----rm-----")
-
-rm_obs!(fg, anal)
-for tr in fg.startstate.trans
-    println(tr)
-end
+# for tr in fg.startstate.trans
+#     println(tr)
+# end
+@show fg.CRP
+# println("-----rm-----")
+#
+# rm_obs!(fg, anal)
+# for tr in fg.startstate.trans
+#     println(tr)
+# end
 
 # NOTE: The grammar below doesn't work. Always have unique terminal rules.
 # Fragments must end with preterminals.
