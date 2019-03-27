@@ -19,19 +19,25 @@ using .FragmentGrammars: category_rule_type
 # S -> S T | T S | T
 # T -> a
 
+println("-----start-----")
 fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))])
 
 for tr in fg.startstate.trans
     println(tr)
 end
 
-@show anal = Analysis(sample(fg, "S")...) # lol
+println("-----analysis-----")
+anal = Analysis(sample(fg, "S")...) # lol
+println(anal)
 
+println("-----add-----")
 add_obs!(fg, anal)
 for tr in fg.startstate.trans
     println(tr)
 end
-@show "--rm--"
+
+println("-----rm-----")
+
 rm_obs!(fg, anal)
 for tr in fg.startstate.trans
     println(tr)

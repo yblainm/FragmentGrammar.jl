@@ -153,7 +153,12 @@ startstate(fg::FragmentGrammar) = fg.startstate
 startsymbols(fg::FragmentGrammar) = fg.startsymbols
 score_type(fg::FragmentGrammar) = LogProb
 state_type(fg::FragmentGrammar) = typeof(startstate(fg))
-
+completions(fg::FragmentGrammar, state::State) =
+    ((cat, r, prob(grammar, cat, r)) for (cat, r) in completions(state))
+completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
+    ((cat, rule, prob(grammar, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
+prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule) =
+    logscore(grammar.rule_cond, rule, dependent_components(cat))
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
 """
