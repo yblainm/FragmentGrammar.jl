@@ -2,42 +2,59 @@
 # Tests #
 #########
 module tests
-include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
-using .GeneralizedChartparsing
-using .GeneralizedChartparsing: ContextFreeRule
-
-# using Test
-# g = Grammar([["0.5", "S", "S", "S"]], [["0.5", "S", "a"]], ["S"], BigInt)
-# @show g.terminal_dict['a']
 
 # include("catalan_test.jl")
 
+# include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
+# using .GeneralizedChartparsing
+# using .GeneralizedChartparsing: ContextFreeRule
 
+include("FragmentGrammars.jl")
+using .FragmentGrammars
+using .FragmentGrammars: category_rule_type
+
+# Test FG with base grammar:
+# S -> S T | T S | T
+# T -> a
+fg = FragmentGrammar(["S"], ["S"], [ContextFreeRule("S", ("S", "T")), ContextFreeRule("S", ("T", "S")), ContextFreeRule("S", ("T",))], ["a"], [ContextFreeRule("T", ("a",))])
+
+for tr in fg.startstate.trans
+    println(tr)
+end
+
+@show anal = Analysis(sample(fg, "S")...) # lol
+
+add_obs!(fg, anal)
+for tr in fg.startstate.trans
+    println(tr)
+end
+@show "--rm--"
+rm_obs!(fg, anal)
+for tr in fg.startstate.trans
+    println(tr)
+end
+
+# NOTE: The grammar below doesn't work. Always have unique terminal rules.
+# Fragments must end with preterminals.
 # g = Grammar(
-# """0.5 S S S""",
+# """0.5 S S a""",
 # """0.5 S a""",
 # ["S"], LogProb)
+
+# NOTE This one works, for example.
+# g = Grammar(
+# """0.5 S S T
+# 0.5 S T""",
+# """1.0 T a""",
+# ["S"], LogProb)
 #
-# @show run_chartparser(["a" for i in 1:3], g) |> score
+# @show run_chartparser(["a" for i in 1:4], g) |> best_tree |> leafs
 
-g = Grammar(
-    [ContextFreeRule(1, (2,3)),
-    ContextFreeRule(1, (1,1))],
-    [ContextFreeRule(1, Tuple{Vararg{Int}}(4)),
-    ContextFreeRule(2, Tuple{Vararg{Int}}(4)),
-    ContextFreeRule(3, Tuple{Vararg{Int}}(4))],
-    [1],
-    LogProb
-)
+# @show ContextFreeRule("S", ("S", "T")) == ContextFreeRule("S", ("S", "T"))
+# @show ContextFreeRule("S", ("S", "T")) === ContextFreeRule("S", ("S", "T"))
 
-@show run_chartparser([4 for i in 1:10], g) |> score
-
-# for n in 1:10
-#     frst = run_chartparser(["a" for i in 1:n], g)
-#     @show (score(frst), catalan_number(n-1))
-# end
-#
-# @show catalan_test(30)
+# a = ContextFreeRule("S", ("S", "T"))
+# @show a("test") |> typeof
 
 # using Profile # Lets you see how many backtraces (function calls) come from a specific code block during runtime. Good for finding bottlenecks.
 

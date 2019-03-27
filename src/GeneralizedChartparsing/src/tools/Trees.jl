@@ -141,6 +141,16 @@ function Base.map(f, t::Tree)
     n
 end
 
+eltype(::Type{Tree}) = Pointer
+IteratorSize(::Type{Tree}) = Base.SizeUnknown()
+function iterate(tree::Tree, state = [tree])
+    if isempty(state)
+        nothing
+    else
+        state[1], prepend!(state[2:end], collect(values(state[1].children)))
+    end
+end
+
 # t = tree("[1[2[3][4][6]][5]]")
 # t2 = map(x->2parse(x), t)
 
