@@ -1,7 +1,7 @@
 __precompile__()
 module FragmentGrammars
 
-export Analysis, BaseDistribution, Fragment, Pointer, FragmentGrammar
+export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragment, Pointer, FragmentGrammar
 export sample, add_obs!, rm_obs!, iterate
 export ContextFreeRule
 
@@ -10,7 +10,8 @@ import Base: iterate, eltype, length, IteratorSize
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
 using .GeneralizedChartparsing.Trees
-using .GeneralizedChartparsing: ContextFreeRule, lhs, rhs, add_rule!
+using .GeneralizedChartparsing: ContextFreeRule, add_rule!
+import .GeneralizedChartparsing: lhs, rhs
 
 include("CompoundDists.jl");
 using .CompoundDists
@@ -59,6 +60,35 @@ struct Analysis{C, CR} # Is this struct even needed? It's basically a Tuple of w
     dm_obs :: Vector{Tuple{C,CR}}
     bb_obs :: Vector{Pair{Tuple{C, CR, C},Bool}}
 end
+
+abstract type AbstractRule{C1,C2} end
+
+struct BaseRule{C1,C2} <: AbstractRule{C1,C2}
+    rule :: ContextFreeRule{C1,C2}
+    lhs :: C1
+    rhs :: Tuple{Vararg{C2}}
+end
+BaseRule(rule) = BaseRule(rule, rule.lhs, rule.rhs)
+BaseRule(lhs::C1, rhs::Tuple{Vararg{C2}}) where {C1,C2} = BaseRule(ContextFreeRule{C1,C2}(lhs, rhs))
+
+struct FragmentRule{C1,C2} <: AbstractRule{C1,C2}
+    fragment :: Fragment
+    rule :: ContextFreeRule{C1,C2}
+    lhs :: C1
+    rhs :: Tuple{Vararg{C2}}
+end
+FragmentRule(rule, fragment) = FragmentRule(fragment, rule, rule.lhs, rule.rhs)
+FragmentRule(fragment) = FragmentRule(ContextFreeRule(fragment.tree.data, (getfield.(fragment.leaves, :data)...,)), fragment)
+
+fragment(fr::FragmentRule) = fr.fragment
+fragment(br::BaseRule) = nothing
+
+lhs(r::AbstractRule) = r.lhs
+rhs(r::AbstractRule) = r.rhs
+(r::BaseRule)(cat) = r.rhs
+(r::BaseRule)() = r.rhs
+(r::FragmentRule)(cat) = r.rhs
+(r::FragmentRule)() = r.rhs
 
 eltype(::Type{Pointer}) = Pointer
 IteratorSize(::Type{Pointer}) = Base.SizeUnknown()
@@ -127,15 +157,16 @@ state_type(fg::FragmentGrammar) = typeof(startstate(fg))
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
 """
-function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms:: Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2) where {C, CR, T, TR}
-
+function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{BaseRule{C,C}}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2) where {C, T, TR}
+    CR = AbstractRule{C,C}
+    cat_rules = Vector{CR}(cat_rules)
     startstate = State(C, CR)
     for r in cat_rules
         add_rule!(startstate, r, r.lhs, r.rhs)
     end
 
     CRP = Dict{C,ChineseRest{Fragment}}()
-    DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat([r for (i, r) in enumerate(cat_rules) if r.lhs == cat]) for (j, cat) in enumerate(cats))
+    DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat{CR,Float64}(Dict(x => 1.0 for x in CR[r for (i, r) in enumerate(cat_rules) if r.lhs == cat])) for (j, cat) in enumerate(cats))
     BB = Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}((r.lhs, r, rhs) => BetaBern(1, 1) for r in cat_rules for rhs in r.rhs)
     preterminals = C[]
     terminal_dict = Dict{T, Vector{Tuple{C, TR}}}()
@@ -238,11 +269,11 @@ function add_obs!(fg :: FragmentGrammar, analysis :: Analysis)
     # Add fragments to CRP
     for frag_ptr in analysis.pointer
         add_obs!(fg.CRP[frag_ptr.fragment.tree.data], frag_ptr.fragment)
+
+        # Add completions to finite state machine (for approx. PCFG)
+        fr = FragmentRule(frag_ptr.fragment)
+        add_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
     end
-    # Add completion to finite state machine (for approx. PCFG)
-    root = analysis.pointer.fragment.tree.data
-    leaves = getfield.(analysis.pointer.fragment.leaves, :data)
-    add_rule!(startstate(fg), ContextFreeRule(root, (leaves...,)), root, leaves)
 end
 
 function rm_obs!(fg :: FragmentGrammar, analysis :: Analysis)
@@ -257,11 +288,10 @@ function rm_obs!(fg :: FragmentGrammar, analysis :: Analysis)
     # rm fragments from CRP
     for frag_ptr in analysis.pointer
         rm_obs!(fg.CRP[frag_ptr.fragment.tree.data], frag_ptr.fragment)
+        # rm completions to finite state machine (for approx. PCFG)
+        fr = FragmentRule(frag_ptr.fragment)
+        rm_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
     end
-    # rm completion from finite state machine (for approx. PCFG)
-    root = analysis.pointer.fragment.tree.data
-    leaves = getfield.(analysis.pointer.fragment.leaves, :data)
-    rm_rule!(startstate(fg), ContextFreeRule(root, (leaves...,)), root, leaves)
 end
 
 end

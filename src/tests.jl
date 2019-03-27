@@ -13,10 +13,13 @@ include("FragmentGrammars.jl")
 using .FragmentGrammars
 using .FragmentGrammars: category_rule_type
 
+# @show Vector{AbstractRule{String,String}}([BaseRule("S", ("S", "T"))]) |> typeof
+
 # Test FG with base grammar:
 # S -> S T | T S | T
 # T -> a
-fg = FragmentGrammar(["S"], ["S"], [ContextFreeRule("S", ("S", "T")), ContextFreeRule("S", ("T", "S")), ContextFreeRule("S", ("T",))], ["a"], [ContextFreeRule("T", ("a",))])
+
+fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))])
 
 for tr in fg.startstate.trans
     println(tr)
