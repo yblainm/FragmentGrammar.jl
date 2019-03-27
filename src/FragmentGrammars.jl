@@ -4,8 +4,9 @@ module FragmentGrammars
 export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragment, Pointer, FragmentGrammar
 export sample, add_obs!, rm_obs!, iterate
 export ContextFreeRule
+export show
 
-import Base: iterate, eltype, length, IteratorSize
+import Base: iterate, eltype, length, IteratorSize, show
 
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
