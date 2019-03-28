@@ -105,7 +105,8 @@ end
 function complete_edge!(edge::Edge, agenda, logbook, grammar)
     for (cat, rule, sco) in completions(grammar, state(edge))
         key = ConsKey(start(edge), tail(edge), cat)
-        comp = EdgeCompletion(id(edge), rule, score(edge) * sco)
+        CR , S = category_rule_type(grammar), score_type(grammar)
+        comp = EdgeCompletion{CR, S}(id(edge), rule, score(edge) * sco)
         create_or_update!(key, comp, agenda, logbook, grammar)
     end
     nothing

@@ -227,6 +227,8 @@ end
 
 show(io::IO, bd::BaseDistribution{C}) where C = print("BaseDistribution{$C}()")
 
+# logscore(::BaseDistribution, frag::Fragment) = 
+
 function sample(basedist :: BaseDistribution)
     C, CR, T, TR = category_type(basedist.fg), category_rule_type(basedist.fg), terminal_type(basedist.fg), terminal_rule_type(basedist.fg)
 

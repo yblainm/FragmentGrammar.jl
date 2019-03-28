@@ -28,6 +28,7 @@ end
 make_accesses(EdgeCompletion)
 
 EdgeCompletion(edgeid, rule, score) = EdgeCompletion(edgeid, rule, score, false)
+EdgeCompletion{CR,S}(edgeid, rule, score) where {CR,S} = EdgeCompletion{CR,S}(edgeid, rule, score, false)
 
 struct TerminalCompletion{T,TR,S} <: Completion{S}
     terminal :: T
