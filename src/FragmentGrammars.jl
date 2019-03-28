@@ -3,15 +3,16 @@ module FragmentGrammars
 
 export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragment, Pointer, FragmentGrammar
 export sample, add_obs!, rm_obs!, iterate
-export ContextFreeRule
+export ContextFreeRule, run_chartparser
+export category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
 
 import Base: iterate, eltype, length, IteratorSize, show
 
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
 using .GeneralizedChartparsing.Trees
-using .GeneralizedChartparsing: ContextFreeRule, add_rule!
-import .GeneralizedChartparsing: lhs, rhs
+using .GeneralizedChartparsing: ContextFreeRule, add_rule!, run_chartparser
+import .GeneralizedChartparsing: lhs, rhs, category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
 
 include("CompoundDists.jl");
 using .CompoundDists
@@ -165,12 +166,11 @@ startsymbols(fg::FragmentGrammar) = fg.startsymbols
 score_type(fg::FragmentGrammar) = LogProb
 state_type(fg::FragmentGrammar) = typeof(startstate(fg))
 completions(fg::FragmentGrammar, state::State) =
-    ((cat, r, prob(grammar, cat, r)) for (cat, r) in completions(state))
+    ((cat, r, prob(fg, cat, r)) for (cat, r) in completions(state))
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
-    ((cat, rule, prob(grammar, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
+    ((cat, rule, prob(fg, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
 prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::BaseRule{C,C}) where {C, CR, T, TR} =
-    new_table_logscore(fg.CRP[cat]) * logscore(fg.DM[cat], rule)
-
+    cat in preterminals(fg) ? LogProb(1) : new_table_logscore(fg.CRP[cat]) * logscore(fg.DM[cat], rule)
 prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::FragmentRule{C,C}) where {C, CR, T, TR} =
     logscore(fg.CRP[cat], fragment(rule))
 """
@@ -296,10 +296,11 @@ function add_obs!(fg :: FragmentGrammar, analysis :: Analysis)
     # Add fragments to CRP
     for frag in analysis.crp_obs
         add_obs!(fg.CRP[frag.tree.data], frag)
+        fr = FragmentRule(frag)
+        add_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
     end
     for frag_ptr in analysis.pointer
         add_obs!(fg.CRP[frag_ptr.fragment.tree.data], frag_ptr.fragment)
-
         # Add completions to finite state machine (for approx. PCFG)
         fr = FragmentRule(frag_ptr.fragment)
         add_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
@@ -318,6 +319,8 @@ function rm_obs!(fg :: FragmentGrammar, analysis :: Analysis)
     # rm fragments from CRP
     for frag in analysis.crp_obs
         rm_obs!(fg.CRP[frag.tree.data], frag)
+        fr = FragmentRule(frag)
+        rm_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
     end
     for frag_ptr in analysis.pointer
         rm_obs!(fg.CRP[frag_ptr.fragment.tree.data], frag_ptr.fragment)

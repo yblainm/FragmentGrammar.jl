@@ -7,7 +7,7 @@ module tests
 
 # include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 # using .GeneralizedChartparsing
-# using .GeneralizedChartparsing: ContextFreeRule
+# using .GeneralizedChartparsing: run_chartparser
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
@@ -26,14 +26,21 @@ fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T
 # -When expanding a fragment's non-terminal, if we sample a stored fragment, it should be counted as a CRP observation even though its tree is subsumed under the current fragment. Currently this doesn't happen.
 # -It doesn't look like fragment leaves are well bookkept.
 
-# --------- Observations --------
-for i in 1:5
-    println("-----New obs-----")
-    anal = Analysis(sample(fg, "S")...)
-    println(anal)
-    add_obs!(fg, anal)
-    println(fg.CRP)
+# ---------- Parsing ------------
+for i in 1:100
+    add_obs!(fg, Analysis(sample(fg, "S")...))
 end
+run_chartparser(["a" for i in 1:10], fg)
+
+# --------- Observations --------
+# for i in 1:5
+#     println("-----New obs-----")
+#     anal = Analysis(sample(fg, "S")...)
+#     # println(anal)
+#     add_obs!(fg, anal)
+#     rm_obs!(fg, anal)
+#     println(fg.startstate)
+# end
 
 # --------- Time tests ----------
 # @time for i in 1:1 add_obs!(fg, Analysis(sample(fg, "S")...)) end
