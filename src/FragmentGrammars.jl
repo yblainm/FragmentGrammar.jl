@@ -4,7 +4,6 @@ module FragmentGrammars
 export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragment, Pointer, FragmentGrammar
 export sample, add_obs!, rm_obs!, iterate
 export ContextFreeRule
-export show
 
 import Base: iterate, eltype, length, IteratorSize, show
 
@@ -60,6 +59,7 @@ struct Analysis{C, CR} # Is this struct even needed? It's basically a Tuple of w
     pointer :: Pointer
     dm_obs :: Vector{Tuple{C,CR}}
     bb_obs :: Vector{Pair{Tuple{C, CR, C},Bool}}
+    crp_obs :: Vector{Fragment}
 end
 
 abstract type AbstractRule{C1,C2} end
@@ -93,6 +93,10 @@ rhs(r::AbstractRule) = r.rhs
 
 show(io::IO, r::AbstractRule{C1,C2}) where {C1,C2} =
 print("AbstractRule($(lhs(r)),$(rhs(r)))")
+show(io::IO, r::BaseRule{C1,C2}) where {C1,C2} =
+print("BaseRule($(lhs(r)),$(rhs(r)))")
+show(io::IO, r::FragmentRule{C1,C2}) where {C1,C2} =
+print("FragmentRule($(lhs(r)),$(rhs(r)))")
 
 eltype(::Type{Pointer}) = Pointer
 IteratorSize(::Type{Pointer}) = Base.SizeUnknown()
@@ -202,17 +206,18 @@ function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{B
     return fg
 end
 
-function sample(fg :: FragmentGrammar, cat :: C) where C
+function sample(fg :: FragmentGrammar{C,CR,T,TR}, cat :: C) where {C, CR, T, TR}
     crp_sample = sample(fg.CRP[cat])
-    fragment, dm_counts, bb_counts = crp_sample # typeof(crp_sample) <: Tuple ? crp_sample : (crp_sample, [], [])
+    fragment, dm_counts, bb_counts, crp_counts = crp_sample isa Tuple ? crp_sample : (crp_sample, Tuple{C,CR}[], Pair{Tuple{C,CR,C}, Bool}[], Fragment[])
     children = Dict{Tree, Pointer}()
     for variable in fragment.variables
-        ptr, dm_counts_child, bb_counts_child = sample(fg, variable.data)
+        ptr, dm_counts_child, bb_counts_child, crp_counts_child = sample(fg, variable.data)
         append!(dm_counts, dm_counts_child)
         append!(bb_counts, bb_counts_child)
+        append!(crp_counts, crp_counts_child)
         push!(children, variable => ptr)
     end
-    return Pointer(fragment, children), dm_counts, bb_counts
+    return Pointer(fragment, children), dm_counts, bb_counts, crp_counts
 end
 
 struct BaseDistribution{C} <: Distribution{Fragment}
@@ -233,11 +238,10 @@ function sample(basedist :: BaseDistribution)
     dm_counts = Tuple{C,CR}[]
     push!(dm_counts, (basedist.category, dm_sample))
     bb_counts = Pair{Tuple{C, CR, C}, Bool}[]
-    r = dm_sample
+    crp_counts = Fragment[]
 
+    r = dm_sample
     children = r(basedist.category) # or r.rhs or rhs(r)
-    Ty = typeof(children)
-    isterm = length(children) === 1 && children[1] in terminals(basedist.fg)
 
     for child in children
         if child in basedist.fg.preterminals
@@ -247,19 +251,24 @@ function sample(basedist :: BaseDistribution)
             push!(leaves, leaf_tree)
         else
             bbidx = (basedist.category, dm_sample, child)
-            flip = sample(basedist.fg.BB[bbidx])
-            push!(bb_counts, bbidx => flip)
-            if flip # if we extend the fragment
+            extend = sample(basedist.fg.BB[bbidx])
+            push!(bb_counts, bbidx => extend)
+            if extend # if we extend the fragment
                 # Get (recursive) Pointer, DM counts, and BB counts
-                ptr, dm_counts_child, bb_counts_child = sample(basedist.fg, child)
+                ptr, dm_counts_child, bb_counts_child, crp_counts_child = sample(basedist.fg, child)
                 frag = ptr.fragment # We only need the fragment for the base distribution
                 # Merge BB counts
                 append!(bb_counts, bb_counts_child)
                 # Merge DM counts
                 append!(dm_counts, dm_counts_child)
+                # Merge CRP counts (if we're *extending* a non-terminal with a stored fragment)
+                append!(crp_counts, crp_counts_child)
+                push!(crp_counts, frag)
+                # Add to tree
                 insert_child!(tree, deepcopy(frag.tree))   # Better than modifying the underlying tree if taken from CRP preexisting fragment
                 # Merge variables (non-terminal leaves) from recursive calls to FG
                 append!(variables, frag.variables)
+                append!(leaves, frag.leaves)
             else
                 # Make a leaf node (variable)
                 variable_tree = TreeNode(child)
@@ -270,7 +279,7 @@ function sample(basedist :: BaseDistribution)
         end
     end
 
-    return Fragment(tree, variables, leaves), dm_counts, bb_counts
+    return Fragment(tree, variables, leaves), dm_counts, bb_counts, crp_counts
 end
 
 
@@ -285,6 +294,9 @@ function add_obs!(fg :: FragmentGrammar, analysis :: Analysis)
         add_obs!(fg.BB[bb_obs[1]], bb_obs[2])
     end
     # Add fragments to CRP
+    for frag in analysis.crp_obs
+        add_obs!(fg.CRP[frag.tree.data], frag)
+    end
     for frag_ptr in analysis.pointer
         add_obs!(fg.CRP[frag_ptr.fragment.tree.data], frag_ptr.fragment)
 
@@ -304,6 +316,9 @@ function rm_obs!(fg :: FragmentGrammar, analysis :: Analysis)
         rm_obs!(fg.BB[bb_obs[1]], bb_obs[2])
     end
     # rm fragments from CRP
+    for frag in analysis.crp_obs
+        rm_obs!(fg.CRP[frag.tree.data], frag)
+    end
     for frag_ptr in analysis.pointer
         rm_obs!(fg.CRP[frag_ptr.fragment.tree.data], frag_ptr.fragment)
         # rm completions to finite state machine (for approx. PCFG)

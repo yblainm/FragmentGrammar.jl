@@ -20,21 +20,48 @@ using .FragmentGrammars: category_rule_type
 # T -> a
 
 println("-----start-----")
-fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))])
+fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.2, 0.5)
 
-# for tr in fg.startstate.trans
-#     println(tr)
-# end
+# TODO:
+# -When expanding a fragment's non-terminal, if we sample a stored fragment, it should be counted as a CRP observation even though its tree is subsumed under the current fragment. Currently this doesn't happen.
+# -It doesn't look like fragment leaves are well bookkept.
+
+# --------- Observations --------
+for i in 1:5
+    println("-----New obs-----")
+    anal = Analysis(sample(fg, "S")...)
+    println(anal)
+    add_obs!(fg, anal)
+    println(fg.CRP)
+end
+
+# --------- Time tests ----------
+# @time for i in 1:1 add_obs!(fg, Analysis(sample(fg, "S")...)) end
+
+# println(Analysis(sample(fg,"S")...))
+
+# @time for i in 1:100 add_obs!(fg, Analysis(sample(fg, "S")...)) end
 #
-println("-----analysis-----")
-anal = Analysis(sample(fg, "S")...) # lol
-println(anal)
+# println(Analysis(sample(fg,"S")...))
 
-println("-----add-----")
-add_obs!(fg, anal)
+# @time for i in 1:10000 add_obs!(fg, Analysis(sample(fg, "S")...)) end
+#
+# println(Analysis(sample(fg,"S")...))
 
-println("-----rm-----")
-rm_obs!(fg, anal)
+# # for tr in fg.startstate.trans
+# #     println(tr)
+# # end
+# #
+# println("-----analysis-----")
+# anal = Analysis(sample(fg, "S")...) # lol
+# println(anal)
+# println(anal)
+#
+# println("-----add-----")
+# add_obs!(fg, anal)
+#
+# println("-----rm-----")
+# rm_obs!(fg, anal)
 
 # NOTE: The grammar below doesn't work. Always have unique terminal rules.
 # Fragments must end with preterminals.
