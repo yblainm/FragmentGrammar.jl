@@ -22,6 +22,8 @@ using .FragmentGrammars: category_rule_type
 println("-----start-----")
 fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.2, 0.5)
 
+# @show state_type(fg)
+
 # TODO:
 # -When expanding a fragment's non-terminal, if we sample a stored fragment, it should be counted as a CRP observation even though its tree is subsumed under the current fragment. Currently this doesn't happen.
 # -It doesn't look like fragment leaves are well bookkept.

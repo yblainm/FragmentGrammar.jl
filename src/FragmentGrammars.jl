@@ -164,7 +164,7 @@ preterminals(fg::FragmentGrammar) = fg.preterminals
 startstate(fg::FragmentGrammar) = fg.startstate
 startsymbols(fg::FragmentGrammar) = fg.startsymbols
 score_type(fg::FragmentGrammar) = LogProb
-state_type(fg::FragmentGrammar) = typeof(startstate(fg))
+state_type(fg::FragmentGrammar{C,CR}) where {C,CR} = State{C,CR} # typeof(startstate(fg))
 completions(fg::FragmentGrammar, state::State) =
     ((cat, r, prob(fg, cat, r)) for (cat, r) in completions(state))
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
@@ -227,7 +227,7 @@ end
 
 show(io::IO, bd::BaseDistribution{C}) where C = print("BaseDistribution{$C}()")
 
-# logscore(::BaseDistribution, frag::Fragment) = 
+# logscore(::BaseDistribution, frag::Fragment) =
 
 function sample(basedist :: BaseDistribution)
     C, CR, T, TR = category_type(basedist.fg), category_rule_type(basedist.fg), terminal_type(basedist.fg), terminal_rule_type(basedist.fg)
@@ -258,19 +258,19 @@ function sample(basedist :: BaseDistribution)
             if extend # if we extend the fragment
                 # Get (recursive) Pointer, DM counts, and BB counts
                 ptr, dm_counts_child, bb_counts_child, crp_counts_child = sample(basedist.fg, child)
-                frag = ptr.fragment # We only need the fragment for the base distribution
+                fragchild = ptr.fragment # We only need the fragment for the base distribution
                 # Merge BB counts
                 append!(bb_counts, bb_counts_child)
                 # Merge DM counts
                 append!(dm_counts, dm_counts_child)
-                # Merge CRP counts (if we're *extending* a non-terminal with a stored fragment)
+                # Merge CRP counts (recursively counts only if we're *extending* a non-terminal with another fragment)
+                # If it's a new fragment, it may contain a fragment in crp_counts_child. If it's already stored, then it contains nothing.
                 append!(crp_counts, crp_counts_child)
-                push!(crp_counts, frag)
                 # Add to tree
-                insert_child!(tree, deepcopy(frag.tree))   # Better than modifying the underlying tree if taken from CRP preexisting fragment
+                insert_child!(tree, deepcopy(fragchild.tree))   # Better than modifying the underlying tree if taken from CRP preexisting fragment
                 # Merge variables (non-terminal leaves) from recursive calls to FG
-                append!(variables, frag.variables)
-                append!(leaves, frag.leaves)
+                append!(variables, fragchild.variables)
+                append!(leaves, fragchild.leaves)
             else
                 # Make a leaf node (variable)
                 variable_tree = TreeNode(child)
@@ -281,7 +281,10 @@ function sample(basedist :: BaseDistribution)
         end
     end
 
-    return Fragment(tree, variables, leaves), dm_counts, bb_counts, crp_counts
+    frag = Fragment(tree, variables, leaves)
+    push!(crp_counts, frag)
+
+    return frag, dm_counts, bb_counts, crp_counts
 end
 
 
