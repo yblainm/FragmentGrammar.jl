@@ -11,8 +11,8 @@ import Base: iterate, eltype, length, IteratorSize, show
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
 using .GeneralizedChartparsing.Trees
-using .GeneralizedChartparsing: ContextFreeRule, add_rule!, run_chartparser
-import .GeneralizedChartparsing: lhs, rhs, category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
+using .GeneralizedChartparsing: ContextFreeRule, run_chartparser
+import .GeneralizedChartparsing: lhs, rhs, category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, add_rule!, startsymbols, score_type, state_type, completions, prob
 
 include("CompoundDists.jl");
 using .CompoundDists
@@ -66,31 +66,38 @@ end
 abstract type AbstractRule{C1,C2} end
 
 struct BaseRule{C1,C2} <: AbstractRule{C1,C2}
-    rule :: ContextFreeRule{C1,C2}
+    # rule :: ContextFreeRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
 end
-BaseRule(rule) = BaseRule(rule, rule.lhs, rule.rhs)
-BaseRule(lhs::C1, rhs::Tuple{Vararg{C2}}) where {C1,C2} = BaseRule(ContextFreeRule{C1,C2}(lhs, rhs))
+BaseRule(rule) = BaseRule(#= rule, =# rule.lhs, rule.rhs)
+# BaseRule(lhs::C1, rhs::Tuple{Vararg{C2}}) where {C1,C2} = BaseRule(ContextFreeRule{C1,C2}(lhs, rhs))
 
 struct FragmentRule{C1,C2} <: AbstractRule{C1,C2}
     fragment :: Fragment
-    rule :: ContextFreeRule{C1,C2}
+    # rule :: ContextFreeRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
 end
-FragmentRule(rule, fragment) = FragmentRule(fragment, rule, rule.lhs, rule.rhs)
-FragmentRule(fragment) = FragmentRule(ContextFreeRule(fragment.tree.data, (getfield.(fragment.leaves, :data)...,)), fragment)
+FragmentRule(rule, fragment) = FragmentRule(fragment, #= rule, =# rule.lhs, rule.rhs)
+FragmentRule(fragment) = FragmentRule(fragment, fragment.tree.data, (getfield.(fragment.leaves, :data)...,))
 
-fragment(fr::FragmentRule) = fr.fragment
-fragment(br::BaseRule) = nothing
+struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
+    lhs :: C1
+    rhs :: Tuple{Vararg{C2}}
+    rules :: Vector{Tuple{AbstractRule,LogProb}}
+end
 
-lhs(r::AbstractRule) = r.lhs
+sample(r::ApproxRule{C1,C2}) = categorical_sample(( x -> (x[1], float.(x[2])) ) (collect(zip(r.rules...)))...)
+
+lhs(r::AbstractRule) = r.lh
 rhs(r::AbstractRule) = r.rhs
 (r::BaseRule)(cat) = r.rhs
 (r::BaseRule)() = r.rhs
 (r::FragmentRule)(cat) = r.rhs
 (r::FragmentRule)() = r.rhs
+(r::ApproxRule)(cat) = r.rhs
+(r::ApproxRule)() = r.rhs
 
 show(io::IO, r::AbstractRule{C1,C2}) where {C1,C2} =
 print("AbstractRule($(lhs(r)),$(rhs(r)))")
@@ -98,6 +105,8 @@ show(io::IO, r::BaseRule{C1,C2}) where {C1,C2} =
 print("BaseRule($(lhs(r)),$(rhs(r)))")
 show(io::IO, r::FragmentRule{C1,C2}) where {C1,C2} =
 print("FragmentRule($(lhs(r)),$(rhs(r)))")
+show(io::IO, r::ApproxRule{C1,C2}) where {C1,C2} =
+print("ApproxRule($(lhs(r)),$(rhs(r)))")
 
 eltype(::Type{Pointer}) = Pointer
 IteratorSize(::Type{Pointer}) = Base.SizeUnknown()
@@ -118,7 +127,28 @@ get_idx(A::AbstractVector{T}, i::T) where T = (
 )
 
 # Basically copied from add_rule! in GeneralizedChartparsing/src/Grammars.jl
-function rm_rule!(state::State{C,CR}, rule, head, cats) where {C,CR}
+function add_rule!(state::State{C,CR}, rule::Tuple{AbstractRule,LogProb}, head, cats) where {C, CR::ApproxRule{C,C}}
+    s = state
+    for c in cats
+        if is_possible_transition(s, c)
+            s = transition(s, c)
+        else
+            s.isfinal = false
+            s = s.trans[c] = State(C, CR)
+        end
+    end
+
+    if mapreduce((lhs, rule) -> lhs != head, &, s.comp) # if no approx rule yet
+        ar = ApproxRule(head, cats, [rule])
+        push!(s.comp, (head, ar))
+    else
+        ar = s.comp[findall(((lhs, rule) -> lhs == head)]
+        push!(ar.rules, rule)
+    end
+    # push!(s.comp, (head, rule))
+end
+
+function rm_rule!(state::State{C,CR}, rule, head, cats) where {C, CR::ApproxRule{C,C}}
     s = state
     for c in cats
         if is_possible_transition(s, c)
@@ -146,7 +176,7 @@ mutable struct FragmentGrammar{C, CR, T, TR}
     preterminals :: Vector{C}
     startstate :: State{C, CR}
     terminal_dict :: Dict{T, Vector{Tuple{C, TR}}}
-    CRP :: Dict{C,ChineseRest{Fragment}}
+    CRP :: Dict{C, ChineseRest{Fragment}}
     DM :: Dict{C, DirCat{CR, Float64}}
     BB :: Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}
 end
@@ -169,10 +199,12 @@ completions(fg::FragmentGrammar, state::State) =
     ((cat, r, prob(fg, cat, r)) for (cat, r) in completions(state))
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
     ((cat, rule, prob(fg, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
+# NOTE: the prob(...) methods are bonked.
 prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::BaseRule{C,C}) where {C, CR, T, TR} =
     cat in preterminals(fg) ? LogProb(1) : new_table_logscore(fg.CRP[cat]) * logscore(fg.DM[cat], rule)
 prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::FragmentRule{C,C}) where {C, CR, T, TR} =
     logscore(fg.CRP[cat], fragment(rule))
+
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
 """
@@ -237,8 +269,8 @@ function sample(basedist :: BaseDistribution)
     tree = TreeNode(basedist.category)
 
     dm_sample = sample(basedist.fg.DM[basedist.category])
-    dm_counts = Tuple{C,CR}[]
-    push!(dm_counts, (basedist.category, dm_sample))
+    dm_counts = Tuple{C,CR}[(basedist.category, dm_sample)]
+    # push!(dm_counts, (basedist.category, dm_sample))
     bb_counts = Pair{Tuple{C, CR, C}, Bool}[]
     crp_counts = Fragment[]
 
@@ -256,7 +288,7 @@ function sample(basedist :: BaseDistribution)
             extend = sample(basedist.fg.BB[bbidx])
             push!(bb_counts, bbidx => extend)
             if extend # if we extend the fragment
-                # Get (recursive) Pointer, DM counts, and BB counts
+                # Get (recursive) Pointer, DM counts, BB counts, and CRP counts (fragments)
                 ptr, dm_counts_child, bb_counts_child, crp_counts_child = sample(basedist.fg, child)
                 fragchild = ptr.fragment # We only need the fragment for the base distribution
                 # Merge BB counts
