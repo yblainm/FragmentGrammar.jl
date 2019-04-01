@@ -85,9 +85,10 @@ FragmentRule(fragment) = FragmentRule(fragment, fragment.tree.data, (getfield.(f
 struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
-    rules :: Vector{Tuple{AbstractRule,LogProb}}
+    rules :: Vector{Tuple{AbstractRule{C1,C2},LogProb}}
 end
 
+# Unzip rule-logprob pairs into two lists, cast the logprob list into floats, and call categorical_sample
 sample(r::ApproxRule{C1,C2}) = categorical_sample(( x -> (x[1], float.(x[2])) ) (collect(zip(r.rules...)))...)
 
 lhs(r::AbstractRule) = r.lh
@@ -137,12 +138,13 @@ function add_rule!(state::State{C,CR}, rule::Tuple{AbstractRule,LogProb}, head, 
             s = s.trans[c] = State(C, CR)
         end
     end
-
-    if mapreduce((lhs, rule) -> lhs != head, &, s.comp) # if no approx rule yet
+    # All unique lhs-rhs pairs are collapsed to include base rules and fragments, and transitions between states determine RHS, therefore we only need to check LHS here.
+    aridx = findall(((lhs, r) -> lhs == head), s.comp)
+    if isempty(aridx) # if no approx rule yet
         ar = ApproxRule(head, cats, [rule])
         push!(s.comp, (head, ar))
     else
-        ar = s.comp[findall(((lhs, rule) -> lhs == head)]
+        ar = s.comp[aridx[1]] # there can be only one
         push!(ar.rules, rule)
     end
     # push!(s.comp, (head, rule))
@@ -158,7 +160,17 @@ function rm_rule!(state::State{C,CR}, rule, head, cats) where {C, CR::ApproxRule
             s = s.trans[c] = State(C, CR)
         end
     end
-    filter!(x -> x≠(head, rule), s.comp)
+    aridx = findall(((lhs, r) -> lhs == head), s.comp)
+    # if isempty(aridx) # if no approx rule yet
+        # Nothing needs to happen here, right?
+    # else
+    if !isempty(aridx) # Shouldn't this never be the case?
+        ar = s.comp[aridx[1]] # there can be only one
+        filter!((r, prob) -> r≠rule, ar.rules) # Remove "rule" from the approx rule
+        if isempty(ar.rules)
+            deleteat!(s.comp, aridx) # Remove empty approx rule from completions
+        end
+    end
 end
 
 ################################
@@ -174,7 +186,7 @@ mutable struct FragmentGrammar{C, CR, T, TR}
     terminals :: Vector{T}
     terminal_rules :: Vector{TR}
     preterminals :: Vector{C}
-    startstate :: State{C, CR}
+    startstate :: State{C, ApproxRule{C,C}}
     terminal_dict :: Dict{T, Vector{Tuple{C, TR}}}
     CRP :: Dict{C, ChineseRest{Fragment}}
     DM :: Dict{C, DirCat{CR, Float64}}
@@ -208,13 +220,12 @@ prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::FragmentRule{C,C}) where {
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
 """
-function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{BaseRule{C,C}}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2) where {C, T, TR}
-    CR = AbstractRule{C,C}
-    cat_rules = Vector{CR}(cat_rules)
-    startstate = State(C, CR)
-    for r in cat_rules
-        add_rule!(startstate, r, r.lhs, r.rhs)
-    end
+function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2) where {C, CR::BaseRule{C,C}, T, TR}
+    # cat_rules = Vector{CR}(cat_rules)
+    startstate = State(C, ApproxRule{C,C})
+    # for r in cat_rules
+    #     add_rule!(startstate, r, r.lhs, r.rhs)
+    # end
 
     CRP = Dict{C,ChineseRest{Fragment}}()
     DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat{CR,Float64}(Dict(x => 1.0 for x in CR[r for (i, r) in enumerate(cat_rules) if r.lhs == cat])) for (j, cat) in enumerate(cats))
