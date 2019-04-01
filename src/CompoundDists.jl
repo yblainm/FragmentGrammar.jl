@@ -235,6 +235,13 @@ function logscore(r::ChineseRest, dish)
     end
 end
 
+function logscore_exists(r::ChineseRest, dish)
+    numerator = sum(n - r.a for n in r.tables[dish])
+    LogProb(log(numerator) - log(r.num_customers + r.b), islog=true)
+end
+
+logscore(r::ChineseRest, dish, exists::Bool) = exists ? logscore_exists(r, dish) : logscore(r, dish)
+
 function add_obs!(r::ChineseRest{Dish}, dish::Dish) where Dish
     r.num_customers += 1
     if !haskey(r.tables, dish)

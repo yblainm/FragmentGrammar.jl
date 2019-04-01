@@ -6,7 +6,7 @@ export sample, add_obs!, rm_obs!, iterate
 export ContextFreeRule, run_chartparser
 export category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
 
-import Base: iterate, eltype, length, IteratorSize, show
+import Base: iterate, eltype, length, IteratorSize#, show
 
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
@@ -85,13 +85,13 @@ FragmentRule(fragment) = FragmentRule(fragment, fragment.tree.data, (getfield.(f
 struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
-    rules :: Vector{Tuple{AbstractRule{C1,C2},LogProb}}
+    rules :: Vector{AbstractRule{C1,C2}}
 end
 
 # Unzip rule-logprob pairs into two lists, cast the logprob list into floats, and call categorical_sample
-sample(r::ApproxRule{C1,C2}) = categorical_sample(( x -> (x[1], float.(x[2])) ) (collect(zip(r.rules...)))...)
+# sample(r::ApproxRule{C1,C2}) = categorical_sample(( x -> (x[1], float.(x[2])) ) (collect(zip(r.rules...)))...)
 
-lhs(r::AbstractRule) = r.lh
+lhs(r::AbstractRule) = r.lhs
 rhs(r::AbstractRule) = r.rhs
 (r::BaseRule)(cat) = r.rhs
 (r::BaseRule)() = r.rhs
@@ -128,7 +128,7 @@ get_idx(A::AbstractVector{T}, i::T) where T = (
 )
 
 # Basically copied from add_rule! in GeneralizedChartparsing/src/Grammars.jl
-function add_rule!(state::State{C,CR}, rule::Tuple{AbstractRule,LogProb}, head, cats) where {C, CR::ApproxRule{C,C}}
+function add_rule!(state::State{C,CR}, rule::AbstractRule{C,C}, head, cats) where {C, CR<:ApproxRule{C,C}}
     s = state
     for c in cats
         if is_possible_transition(s, c)
@@ -139,18 +139,18 @@ function add_rule!(state::State{C,CR}, rule::Tuple{AbstractRule,LogProb}, head, 
         end
     end
     # All unique lhs-rhs pairs are collapsed to include base rules and fragments, and transitions between states determine RHS, therefore we only need to check LHS here.
-    aridx = findall(((lhs, r) -> lhs == head), s.comp)
+    aridx = findall((comp -> comp[1] == head), s.comp)
     if isempty(aridx) # if no approx rule yet
-        ar = ApproxRule(head, cats, [rule])
+        ar = ApproxRule(head, cats, AbstractRule{C,C}[rule])
         push!(s.comp, (head, ar))
     else
-        ar = s.comp[aridx[1]] # there can be only one
-        push!(ar.rules, rule)
+        ar = s.comp[aridx[1]][2] # there can be only one
+        if !(rule in ar.rules) push!(ar.rules, rule) end
     end
     # push!(s.comp, (head, rule))
 end
 
-function rm_rule!(state::State{C,CR}, rule, head, cats) where {C, CR::ApproxRule{C,C}}
+function rm_rule!(state::State{C,CR}, rule::AbstractRule{C,C}, head, cats) where {C, CR<:ApproxRule{C,C}}
     s = state
     for c in cats
         if is_possible_transition(s, c)
@@ -160,13 +160,13 @@ function rm_rule!(state::State{C,CR}, rule, head, cats) where {C, CR::ApproxRule
             s = s.trans[c] = State(C, CR)
         end
     end
-    aridx = findall(((lhs, r) -> lhs == head), s.comp)
+    aridx = findall((comp -> comp[1] == head), s.comp)
     # if isempty(aridx) # if no approx rule yet
         # Nothing needs to happen here, right?
     # else
     if !isempty(aridx) # Shouldn't this never be the case?
-        ar = s.comp[aridx[1]] # there can be only one
-        filter!((r, prob) -> r≠rule, ar.rules) # Remove "rule" from the approx rule
+        ar = s.comp[aridx[1]][2] # there can be only one
+        filter!(r -> r≠rule, ar.rules) # Remove "rule" from the approx rule
         if isempty(ar.rules)
             deleteat!(s.comp, aridx) # Remove empty approx rule from completions
         end
@@ -211,21 +211,25 @@ completions(fg::FragmentGrammar, state::State) =
     ((cat, r, prob(fg, cat, r)) for (cat, r) in completions(state))
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
     ((cat, rule, prob(fg, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
-# NOTE: the prob(...) methods are bonked.
-prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::BaseRule{C,C}) where {C, CR, T, TR} =
-    cat in preterminals(fg) ? LogProb(1) : new_table_logscore(fg.CRP[cat]) * logscore(fg.DM[cat], rule)
-prob(fg::FragmentGrammar{C, CR, T, TR}, cat::C, rule::FragmentRule{C,C}) where {C, CR, T, TR} =
-    logscore(fg.CRP[cat], fragment(rule))
+prob(fg::FragmentGrammar{C}, cat::C, rule::BaseRule{C,C}) where C = one(score_type(fg))
+prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}} = mapreduce(+, rule.rules) do r
+    if r isa BaseRule
+        logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
+    elseif r isa FragmentRule
+        logscore(fg.CRP[cat], r.fragment, true)
+    else error("ApproxRule subrule is of type $(typeof(r)), should be BaseRule or FragmentRule") end
+end
 
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
 """
-function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2) where {C, CR::BaseRule{C,C}, T, TR}
+function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2) where {C, CR<:BaseRule{C,C}, T, TR}
     # cat_rules = Vector{CR}(cat_rules)
     startstate = State(C, ApproxRule{C,C})
-    # for r in cat_rules
-    #     add_rule!(startstate, r, r.lhs, r.rhs)
-    # end
+    for r in cat_rules
+        add_rule!(startstate, r, r.lhs, r.rhs)
+        # rm_rule!(startstate, r, r.lhs, r.rhs)
+    end
 
     CRP = Dict{C,ChineseRest{Fragment}}()
     DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat{CR,Float64}(Dict(x => 1.0 for x in CR[r for (i, r) in enumerate(cat_rules) if r.lhs == cat])) for (j, cat) in enumerate(cats))
