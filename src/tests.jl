@@ -33,7 +33,7 @@ fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T
 for i in 1:100
     add_obs!(fg, Analysis(sample(fg, "S")...))
 end
-run_chartparser(["a" for i in 1:10], fg)
+@show run_chartparser(["a" for i in 1:10], fg) |> best_tree
 
 # --------- Observations --------
 # for i in 1:5

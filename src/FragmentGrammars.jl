@@ -3,7 +3,7 @@ module FragmentGrammars
 
 export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragment, Pointer, FragmentGrammar
 export sample, add_obs!, rm_obs!, iterate
-export ContextFreeRule, run_chartparser
+export run_chartparser, best_tree
 export category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
 
 import Base: iterate, eltype, length, IteratorSize#, show
@@ -11,7 +11,7 @@ import Base: iterate, eltype, length, IteratorSize#, show
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
 using .GeneralizedChartparsing.Trees
-using .GeneralizedChartparsing: ContextFreeRule, run_chartparser
+using .GeneralizedChartparsing: run_chartparser, best_tree
 import .GeneralizedChartparsing: lhs, rhs, category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, add_rule!, startsymbols, score_type, state_type, completions, prob
 
 include("CompoundDists.jl");
@@ -128,14 +128,14 @@ get_idx(A::AbstractVector{T}, i::T) where T = (
 )
 
 # Basically copied from add_rule! in GeneralizedChartparsing/src/Grammars.jl
-function add_rule!(state::State{C,CR}, rule::AbstractRule{C,C}, head, cats) where {C, CR<:ApproxRule{C,C}}
+function add_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, head, cats) where {C} #, CR<:ApproxRule{C,C}}
     s = state
     for c in cats
         if is_possible_transition(s, c)
             s = transition(s, c)
         else
             s.isfinal = false
-            s = s.trans[c] = State(C, CR)
+            s = s.trans[c] = State(C, AbstractRule{C,C})
         end
     end
     # All unique lhs-rhs pairs are collapsed to include base rules and fragments, and transitions between states determine RHS, therefore we only need to check LHS here.
@@ -150,7 +150,7 @@ function add_rule!(state::State{C,CR}, rule::AbstractRule{C,C}, head, cats) wher
     # push!(s.comp, (head, rule))
 end
 
-function rm_rule!(state::State{C,CR}, rule::AbstractRule{C,C}, head, cats) where {C, CR<:ApproxRule{C,C}}
+function rm_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, head, cats) where {C} #, CR<:ApproxRule{C,C}}
     s = state
     for c in cats
         if is_possible_transition(s, c)
@@ -186,7 +186,7 @@ mutable struct FragmentGrammar{C, CR, T, TR}
     terminals :: Vector{T}
     terminal_rules :: Vector{TR}
     preterminals :: Vector{C}
-    startstate :: State{C, ApproxRule{C,C}}
+    startstate :: State{C, AbstractRule{C,C}}
     terminal_dict :: Dict{T, Vector{Tuple{C, TR}}}
     CRP :: Dict{C, ChineseRest{Fragment}}
     DM :: Dict{C, DirCat{CR, Float64}}
@@ -198,15 +198,15 @@ show(io::IO, fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} =
 
 category_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = C
 terminal_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = T
-category_rule_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = CR
+category_rule_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = AbstractRule{C,C}
 terminal_rule_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = TR
 categories(fg::FragmentGrammar) = fg.categories
 terminals(fg::FragmentGrammar) = fg.terminals
 preterminals(fg::FragmentGrammar) = fg.preterminals
 startstate(fg::FragmentGrammar) = fg.startstate
-startsymbols(fg::FragmentGrammar) = fg.startsymbols
+startsymbols(fg::FragmentGrammar) = fg.startcategories
 score_type(fg::FragmentGrammar) = LogProb
-state_type(fg::FragmentGrammar{C,CR}) where {C,CR} = State{C,CR} # typeof(startstate(fg))
+state_type(fg::FragmentGrammar{C}) where C = State{C,AbstractRule{C,C}} # typeof(startstate(fg))
 completions(fg::FragmentGrammar, state::State) =
     ((cat, r, prob(fg, cat, r)) for (cat, r) in completions(state))
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
@@ -225,7 +225,7 @@ end
 """
 function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2) where {C, CR<:BaseRule{C,C}, T, TR}
     # cat_rules = Vector{CR}(cat_rules)
-    startstate = State(C, ApproxRule{C,C})
+    startstate = State(C, AbstractRule{C,C})# ApproxRule{C,C})
     for r in cat_rules
         add_rule!(startstate, r, r.lhs, r.rhs)
         # rm_rule!(startstate, r, r.lhs, r.rhs)
