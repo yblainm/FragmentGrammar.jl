@@ -48,7 +48,7 @@ function initialize(input, grammar, parsing_method, epsilon)
     logbook = ParserLogbook(C, T, CR, TR, St, S)
     for i in 1:n
         for (cat, rule, sco) in completions(grammar, input[i])
-            create_or_update!(ConsKey(i,i+1,cat), TerminalCompletion(input[i], rule, sco), agenda, logbook, grammar)
+            create_or_update!(ConsKey(i,i+1,cat), TerminalCompletion{T,TR,S}(input[i], rule, sco), agenda, logbook, grammar)
         end
         if !ismissing(epsilon)
             for (cat, rule, sco) in completions(grammar, epsilon)
