@@ -33,8 +33,13 @@ fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T
 for i in 1:100
     add_obs!(fg, Analysis(sample(fg, "S")...))
 end
-@show (run_chartparser(["a" for i in 1:10], fg) |> best_tree).data |> typeof
+# @show (run_chartparser(["a" for i in 1:10], fg) |> best_tree).data |> typeof
 # Tuple{Main.tests.FragmentGrammars.GeneralizedChartparsing.Constituent{String, String, Main.tests.FragmentGrammars.AbstractRule{String, String}, Main.tests.FragmentGrammars.BaseRule{String, String},LogProbs.LogProb}, Main.tests.FragmentGrammars.ApproxRule{String, String}}
+
+sampled_approx_tree = (run_chartparser(["a" for i in 1:10], fg) |> sample_tree)
+for tr in sampled_approx_tree
+    println(tr.data)
+end
 
 # --------- Observations --------
 # for i in 1:5

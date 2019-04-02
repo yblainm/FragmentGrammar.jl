@@ -3,7 +3,7 @@ module FragmentGrammars
 
 export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragment, Pointer, FragmentGrammar
 export sample, add_obs!, rm_obs!, iterate
-export run_chartparser, best_tree
+export run_chartparser, sample_tree
 export category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
 
 import Base: iterate, eltype, length, IteratorSize#, show
@@ -11,8 +11,9 @@ import Base: iterate, eltype, length, IteratorSize#, show
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
 using .GeneralizedChartparsing.Trees
-using .GeneralizedChartparsing: run_chartparser, best_tree
+using .GeneralizedChartparsing: run_chartparser, sample_tree
 import .GeneralizedChartparsing: lhs, rhs, category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, add_rule!, startsymbols, score_type, state_type, completions, prob
+import .GeneralizedChartparsing: categorical_sample
 
 include("CompoundDists.jl");
 using .CompoundDists
@@ -90,6 +91,7 @@ end
 
 # Unzip rule-logprob pairs into two lists, cast the logprob list into floats, and call categorical_sample
 # sample(r::ApproxRule{C1,C2}) = categorical_sample(( x -> (x[1], float.(x[2])) ) (collect(zip(r.rules...)))...)
+categorical_sample(tokens::Vector{X}, weights::Vector{LogProb}) where X = categorical_sample(tokens, float.(weights))
 
 lhs(r::AbstractRule) = r.lhs
 rhs(r::AbstractRule) = r.rhs
