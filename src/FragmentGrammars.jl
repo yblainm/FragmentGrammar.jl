@@ -5,6 +5,7 @@ export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragmen
 export sample, add_obs!, rm_obs!, iterate
 export run_chartparser, sample_tree
 export category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
+# export show
 
 import Base: iterate, eltype, length, IteratorSize#, show
 
@@ -83,10 +84,11 @@ end
 FragmentRule(rule, fragment) = FragmentRule(fragment, #= rule, =#lhs(rule), rhs(rule))
 FragmentRule(fragment) = FragmentRule(fragment, fragment.tree.data, (getfield.(fragment.leaves, :data)...,))
 
-struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
+mutable struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
     rules :: Vector{Tuple{AbstractRule{C1,C2}, LogProb}}
+    prob :: LogProb
 end
 
 # Unzip rule-logprob pairs into two lists, cast the logprob list into floats, and call categorical_sample
@@ -105,7 +107,7 @@ rhs(r::AbstractRule) = r.rhs
 show(io::IO, r::AbstractRule{C1,C2}) where {C1,C2} =
 print("AbstractRule($(lhs(r)),$(rhs(r)))")
 show(io::IO, r::BaseRule{C1,C2}) where {C1,C2} =
-print("BaseRule($(lhs(r)),$(rhs(r)))")
+println("BaseRule($(lhs(r)),$(rhs(r)))")
 show(io::IO, r::FragmentRule{C1,C2}) where {C1,C2} =
 print("FragmentRule($(lhs(r)),$(rhs(r)))")
 show(io::IO, r::ApproxRule{C1,C2}) where {C1,C2} =
@@ -118,6 +120,16 @@ function iterate(frag_pointer::Pointer, state = [frag_pointer])
         nothing
     else
         state[1], prepend!(state[2:end], collect(values(state[1].children)))
+    end
+end
+
+eltype(::Type{State}) = State
+IteratorSize(::Type{State}) = Base.SizeUnknown()
+function iterate(fsa_state::State, state = [fsa_state])
+    if isempty(state)
+        nothing
+    else
+        state[1], prepend!(state[2:end], collect(values(state[1].trans)))
     end
 end
 
@@ -143,10 +155,10 @@ function add_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, h
     # All unique lhs-rhs pairs are collapsed to include base rules and fragments, and transitions between states determine RHS, therefore we only need to check LHS here.
     aridx = findall((comp -> comp[1] == head), s.comp)
     if isempty(aridx) # if no approx rule yet
-        ar = ApproxRule(head, cats, Tuple{AbstractRule{C,C},LogProb}[(rule, zero(LogProb))])
+        ar = ApproxRule(head, cats, Tuple{AbstractRule{C,C},LogProb}[(rule, zero(LogProb))], zero(LogProb))
         push!(s.comp, (head, ar))
     else
-        ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is rule object
+        ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is ruleprob tuple
         if !(rule in ar.rules) push!(ar.rules, (rule, zero(LogProb))) end
     end
     # push!(s.comp, (head, rule))
@@ -167,7 +179,7 @@ function rm_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, he
         # Nothing needs to happen here, right?
     # else
     if !isempty(aridx) # Shouldn't this never be the case?
-        ar = s.comp[aridx[1]][2] # there can be only one
+        ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is ruleprob tuple
         filter!(r -> r≠rule, ar.rules) # Remove "rule" from the approx rule
         if isempty(ar.rules)
             deleteat!(s.comp, aridx) # Remove empty approx rule from completions
@@ -198,6 +210,9 @@ end
 show(io::IO, fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} =
     print("FragmentGrammar{$C, $(CR), $T, $(TR)}()")
 
+show(io::IO, crp::ChineseRest) =
+    print("ChineseRest($(crp.a), $(crp.b), $(crp.num_tables), $(crp.num_customers), $(crp.tables))")
+
 category_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = C
 terminal_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = T
 category_rule_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = AbstractRule{C,C}
@@ -214,29 +229,25 @@ completions(fg::FragmentGrammar{C}, state::State{C,AbstractRule{C,C}}) where C =
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
     ((cat, rule, prob(fg, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
 prob(fg::FragmentGrammar{C}, cat::C, rule::BaseRule{C,C}) where C = one(score_type(fg))
-function prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}}
-    marg = zero(LogProb)
+prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}} = rule.prob
+
+function update_approx_probs!(rule::ApproxRule{C,C}, fg::FragmentGrammar{C}) where C
+    # Should really use broadcasting or something here...
     for (i, (r,p)) in enumerate(rule.rules)
-        # (r,p) = ruleprob
+        cat = lhs(r)
         if r isa BaseRule
             new_p = logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
-            marg += new_p
+            rule.prob += new_p
             rule.rules[i] = (r,new_p)
         elseif r isa FragmentRule
             new_p = logscore(fg.CRP[cat], r.fragment, true)
-            marg += new_p
+            rule.prob += new_p
             rule.rules[i] = (r,new_p)
         else error("ApproxRule subrule is of type $(typeof(r)), should be BaseRule or FragmentRule") end
     end
-    return marg
 end
-# prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}} = mapreduce(+, rule.rules) do r
-#     if r isa BaseRule
-#         logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
-#     elseif r isa FragmentRule
-#         logscore(fg.CRP[cat], r.fragment, true)
-#     else error("ApproxRule subrule is of type $(typeof(r)), should be BaseRule or FragmentRule") end
-# end
+update_approx_probs!(ruleprob::Tuple{C,ApproxRule{C,C}}, fg::FragmentGrammar{C}) where C = update_approx_probs!(ruleprob[2], fg)
+update_approx_probs!(fg::FragmentGrammar) = for state in startstate(fg) update_approx_probs!.(state.comp, Ref(fg)) end
 
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])

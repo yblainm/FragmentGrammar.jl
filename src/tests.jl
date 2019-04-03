@@ -11,38 +11,52 @@ module tests
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
-using .FragmentGrammars: ApproxRule
+using .FragmentGrammars: ApproxRule, update_approx_probs!
 
-# @show Vector{AbstractRule{String,String}}([BaseRule("S", ("S", "T"))]) |> typeof
+# TODO:
+# -
 
 # Test FG with base grammar:
 # S -> S T | T S | T
 # T -> a
 
 println("-----start-----")
-fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.2, 0.5)
+@time fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.2, 0.5)
 
-# @show state_type(fg)
-# @show startstate(fg)
-
-# TODO:
-# -When expanding a fragment's non-terminal, if we sample a stored fragment, it should be counted as a CRP observation even though its tree is subsumed under the current fragment. Currently this doesn't happen.
-# -It doesn't look like fragment leaves are well bookkept.
 
 # ---------- Parsing ------------
-for i in 1:100
-    add_obs!(fg, Analysis(sample(fg, "S")...))
-end
-# @show (run_chartparser(["a" for i in 1:10], fg) |> best_tree).data |> typeof
-# Tuple{Main.tests.FragmentGrammars.GeneralizedChartparsing.Constituent{String, String, Main.tests.FragmentGrammars.AbstractRule{String, String}, Main.tests.FragmentGrammars.BaseRule{String, String},LogProbs.LogProb}, Main.tests.FragmentGrammars.ApproxRule{String, String}}
-
-sampled_approx_tree = (run_chartparser(["a" for i in 1:10], fg) |> sample_tree)
-for tr in sampled_approx_tree
-    if tr.data[2] isa ApproxRule
-        @show sample(tr.data[2]) # sample from ApproxRule
-        break
+@time for i in 1:1
+    anal = Analysis(sample(fg, "S")...)
+    add_obs!(fg, anal)
+    # println(fg.CRP)
+    rm_obs!(fg, anal)
+    # println(fg.CRP)
+    for state in fg.startstate
+        println("----new state----")
+        for comp in state.comp
+            println("$(comp[2].rules)")
+        end
     end
 end
+# This is specifically for the parser + translating from approx PCFG to an analysis
+# It should always be called before doing anything ApproxRule-related.
+# for state in fg.startstate
+#     for comp in state.comp
+#         println(comp[2].rhs, length(comp[2].rules))
+#     end
+# end
+
+# @time update_approx_probs!(fg)
+
+# @time sampled_approx_tree = (run_chartparser(["a" for i in 1:10], fg) |> sample_tree)
+# for tr in sampled_approx_tree
+#     if tr.data[2] isa ApproxRule
+#         for i in 1:10
+#         @show sample(tr.data[2]) # sample from ApproxRule
+#         end
+#         break
+#     end
+# end
 
 # --------- Observations --------
 # for i in 1:5
