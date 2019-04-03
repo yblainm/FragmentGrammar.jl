@@ -11,7 +11,7 @@ module tests
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
-# using .FragmentGrammars: category_rule_type
+using .FragmentGrammars: ApproxRule
 
 # @show Vector{AbstractRule{String,String}}([BaseRule("S", ("S", "T"))]) |> typeof
 
@@ -38,7 +38,10 @@ end
 
 sampled_approx_tree = (run_chartparser(["a" for i in 1:10], fg) |> sample_tree)
 for tr in sampled_approx_tree
-    println(tr.data)
+    if tr.data[2] isa ApproxRule
+        @show sample(tr.data[2]) # sample from ApproxRule
+        break
+    end
 end
 
 # --------- Observations --------

@@ -86,11 +86,11 @@ FragmentRule(fragment) = FragmentRule(fragment, fragment.tree.data, (getfield.(f
 struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
-    rules :: Vector{AbstractRule{C1,C2}}
+    rules :: Vector{Tuple{AbstractRule{C1,C2}, LogProb}}
 end
 
 # Unzip rule-logprob pairs into two lists, cast the logprob list into floats, and call categorical_sample
-# sample(r::ApproxRule{C1,C2}) = categorical_sample(( x -> (x[1], float.(x[2])) ) (collect(zip(r.rules...)))...)
+sample(r::ApproxRule) = categorical_sample((x->(x[1], float.(x[2])))(collect(zip(r.rules...)))...)
 categorical_sample(tokens::Vector{X}, weights::Vector{LogProb}) where X = categorical_sample(tokens, float.(weights))
 
 lhs(r::AbstractRule) = r.lhs
@@ -143,11 +143,11 @@ function add_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, h
     # All unique lhs-rhs pairs are collapsed to include base rules and fragments, and transitions between states determine RHS, therefore we only need to check LHS here.
     aridx = findall((comp -> comp[1] == head), s.comp)
     if isempty(aridx) # if no approx rule yet
-        ar = ApproxRule(head, cats, AbstractRule{C,C}[rule])
+        ar = ApproxRule(head, cats, Tuple{AbstractRule{C,C},LogProb}[(rule, zero(LogProb))])
         push!(s.comp, (head, ar))
     else
-        ar = s.comp[aridx[1]][2] # there can be only one
-        if !(rule in ar.rules) push!(ar.rules, rule) end
+        ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is rule object
+        if !(rule in ar.rules) push!(ar.rules, (rule, zero(LogProb))) end
     end
     # push!(s.comp, (head, rule))
 end
@@ -214,13 +214,29 @@ completions(fg::FragmentGrammar{C}, state::State{C,AbstractRule{C,C}}) where C =
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
     ((cat, rule, prob(fg, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
 prob(fg::FragmentGrammar{C}, cat::C, rule::BaseRule{C,C}) where C = one(score_type(fg))
-prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}} = mapreduce(+, rule.rules) do r
-    if r isa BaseRule
-        logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
-    elseif r isa FragmentRule
-        logscore(fg.CRP[cat], r.fragment, true)
-    else error("ApproxRule subrule is of type $(typeof(r)), should be BaseRule or FragmentRule") end
+function prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}}
+    marg = zero(LogProb)
+    for (i, (r,p)) in enumerate(rule.rules)
+        # (r,p) = ruleprob
+        if r isa BaseRule
+            new_p = logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
+            marg += new_p
+            rule.rules[i] = (r,new_p)
+        elseif r isa FragmentRule
+            new_p = logscore(fg.CRP[cat], r.fragment, true)
+            marg += new_p
+            rule.rules[i] = (r,new_p)
+        else error("ApproxRule subrule is of type $(typeof(r)), should be BaseRule or FragmentRule") end
+    end
+    return marg
 end
+# prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}} = mapreduce(+, rule.rules) do r
+#     if r isa BaseRule
+#         logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
+#     elseif r isa FragmentRule
+#         logscore(fg.CRP[cat], r.fragment, true)
+#     else error("ApproxRule subrule is of type $(typeof(r)), should be BaseRule or FragmentRule") end
+# end
 
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
