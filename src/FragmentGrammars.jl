@@ -71,7 +71,7 @@ struct BaseRule{C1,C2} <: AbstractRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
 end
-BaseRule(rule) = BaseRule(#= rule, =# rule.lhs, rule.rhs)
+BaseRule(rule) = BaseRule(#= rule, =# lhs(rule), rhs(rule))
 # BaseRule(lhs::C1, rhs::Tuple{Vararg{C2}}) where {C1,C2} = BaseRule(ContextFreeRule{C1,C2}(lhs, rhs))
 
 struct FragmentRule{C1,C2} <: AbstractRule{C1,C2}
@@ -80,7 +80,7 @@ struct FragmentRule{C1,C2} <: AbstractRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
 end
-FragmentRule(rule, fragment) = FragmentRule(fragment, #= rule, =# rule.lhs, rule.rhs)
+FragmentRule(rule, fragment) = FragmentRule(fragment, #= rule, =#lhs(rule), rhs(rule))
 FragmentRule(fragment) = FragmentRule(fragment, fragment.tree.data, (getfield.(fragment.leaves, :data)...,))
 
 struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
@@ -95,12 +95,12 @@ categorical_sample(tokens::Vector{X}, weights::Vector{LogProb}) where X = catego
 
 lhs(r::AbstractRule) = r.lhs
 rhs(r::AbstractRule) = r.rhs
-(r::BaseRule)(cat) = r.rhs
-(r::BaseRule)() = r.rhs
-(r::FragmentRule)(cat) = r.rhs
-(r::FragmentRule)() = r.rhs
-(r::ApproxRule)(cat) = r.rhs
-(r::ApproxRule)() = r.rhs
+(r::BaseRule)(cat) = rhs(r)
+(r::BaseRule)() = rhs(r)
+(r::FragmentRule)(cat) = rhs(r)
+(r::FragmentRule)() = rhs(r)
+(r::ApproxRule)(cat) = rhs(r)
+(r::ApproxRule)() = rhs(r)
 
 show(io::IO, r::AbstractRule{C1,C2}) where {C1,C2} =
 print("AbstractRule($(lhs(r)),$(rhs(r)))")
@@ -209,7 +209,7 @@ startstate(fg::FragmentGrammar) = fg.startstate
 startsymbols(fg::FragmentGrammar) = fg.startcategories
 score_type(fg::FragmentGrammar) = LogProb
 state_type(fg::FragmentGrammar{C}) where C = State{C,AbstractRule{C,C}} # typeof(startstate(fg))
-completions(fg::FragmentGrammar, state::State) =
+completions(fg::FragmentGrammar{C}, state::State{C,AbstractRule{C,C}}) where C =
     ((cat, r, prob(fg, cat, r)) for (cat, r) in completions(state))
 completions(fg::FragmentGrammar{C, CR, T, TR}, t::T) where {C, T, CR, TR} =
     ((cat, rule, prob(fg, cat, rule)) for (cat, rule) in fg.terminal_dict[t])
@@ -229,22 +229,22 @@ function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{C
     # cat_rules = Vector{CR}(cat_rules)
     startstate = State(C, AbstractRule{C,C})# ApproxRule{C,C})
     for r in cat_rules
-        add_rule!(startstate, r, r.lhs, r.rhs)
+        add_rule!(startstate, r, lhs(r), rhs(r))
         # rm_rule!(startstate, r, r.lhs, r.rhs)
     end
 
     CRP = Dict{C,ChineseRest{Fragment}}()
-    DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat{CR,Float64}(Dict(x => 1.0 for x in CR[r for (i, r) in enumerate(cat_rules) if r.lhs == cat])) for (j, cat) in enumerate(cats))
-    BB = Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}((r.lhs, r, rhs) => BetaBern(1, 1) for r in cat_rules for rhs in r.rhs)
+    DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat{CR,Float64}(Dict(x => 1.0 for x in CR[r for (i, r) in enumerate(cat_rules) if lhs(r) == cat])) for (j, cat) in enumerate(cats))
+    BB = Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}((lhs(r), r, rhs) => BetaBern(1, 1) for r in cat_rules for rhs in rhs(r))
     preterminals = C[]
     terminal_dict = Dict{T, Vector{Tuple{C, TR}}}()
     for r in term_rules
-        push!(preterminals, r.lhs)
-        t = r.rhs[1]
+        push!(preterminals, lhs(r))
+        t = rhs(r)[1]
         if haskey(terminal_dict, t)
-            push!(terminal_dict[t], (r.lhs, r))
+            push!(terminal_dict[t], (lhs(r), r))
         else
-            terminal_dict[t] = [(r.lhs, r)]
+            terminal_dict[t] = [(lhs(r), r)]
         end
     end
 
@@ -351,13 +351,13 @@ function add_obs!(fg :: FragmentGrammar, analysis :: Analysis)
     for frag in analysis.crp_obs
         add_obs!(fg.CRP[frag.tree.data], frag)
         fr = FragmentRule(frag)
-        add_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
+        add_rule!(startstate(fg), fr, lhs(fr), rhs(fr))
     end
     for frag_ptr in analysis.pointer
         add_obs!(fg.CRP[frag_ptr.fragment.tree.data], frag_ptr.fragment)
         # Add completions to finite state machine (for approx. PCFG)
         fr = FragmentRule(frag_ptr.fragment)
-        add_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
+        add_rule!(startstate(fg), fr, lhs(fr), rhs(fr))
     end
 end
 
@@ -374,13 +374,13 @@ function rm_obs!(fg :: FragmentGrammar, analysis :: Analysis)
     for frag in analysis.crp_obs
         rm_obs!(fg.CRP[frag.tree.data], frag)
         fr = FragmentRule(frag)
-        rm_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
+        rm_rule!(startstate(fg), fr, lhs(fr), rhs(fr))
     end
     for frag_ptr in analysis.pointer
         rm_obs!(fg.CRP[frag_ptr.fragment.tree.data], frag_ptr.fragment)
         # rm completions to finite state machine (for approx. PCFG)
         fr = FragmentRule(frag_ptr.fragment)
-        rm_rule!(startstate(fg), fr, fr.lhs, fr.rhs)
+        rm_rule!(startstate(fg), fr, lhs(fr), rhs(fr))
     end
 end
 
