@@ -154,6 +154,7 @@ function add_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, h
     end
     # All unique lhs-rhs pairs are collapsed to include base rules and fragments, and transitions between states determine RHS, therefore we only need to check LHS here.
     aridx = findall((comp -> comp[1] == head), s.comp)
+    # @show aridx, head, cats, rule
     if isempty(aridx) # if no approx rule yet
         ar = ApproxRule(head, cats, Tuple{AbstractRule{C,C},LogProb}[(rule, zero(LogProb))], zero(LogProb))
         push!(s.comp, (head, ar))
@@ -175,12 +176,14 @@ function rm_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, he
         end
     end
     aridx = findall((comp -> comp[1] == head), s.comp)
+    # @show aridx, head, cats, rule
     # if isempty(aridx) # if no approx rule yet
         # Nothing needs to happen here, right?
     # else
     if !isempty(aridx) # Shouldn't this never be the case?
         ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is ruleprob tuple
-        filter!(r -> r≠rule, ar.rules) # Remove "rule" from the approx rule
+        # @show ar.rules
+        filter!(r -> r[1]≠rule, ar.rules) # Remove "rule" from the approx rule
         if isempty(ar.rules)
             deleteat!(s.comp, aridx) # Remove empty approx rule from completions
         end

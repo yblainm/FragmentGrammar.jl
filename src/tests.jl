@@ -29,8 +29,16 @@ println("-----start-----")
     anal = Analysis(sample(fg, "S")...)
     add_obs!(fg, anal)
     # println(fg.CRP)
+    println("----before----")
+    for state in fg.startstate
+        println("----new state----")
+        for comp in state.comp
+            println("$(comp[2].rules)")
+        end
+    end
     rm_obs!(fg, anal)
     # println(fg.CRP)
+    println("----after----")
     for state in fg.startstate
         println("----new state----")
         for comp in state.comp
