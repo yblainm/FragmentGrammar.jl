@@ -5,9 +5,10 @@ export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragmen
 export sample, add_obs!, rm_obs!, iterate
 export run_chartparser, sample_tree
 export category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
+export iterate, eltype, IteratorSize
 # export show
 
-import Base: iterate, eltype, length, IteratorSize#, show
+import Base: iterate, eltype, IteratorSize#, length, show
 
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
@@ -123,8 +124,8 @@ function iterate(frag_pointer::Pointer, state = [frag_pointer])
     end
 end
 
-eltype(::Type{State}) = State
-IteratorSize(::Type{State}) = Base.SizeUnknown()
+eltype(::Type{State{C,CR}}) where {C,CR} = State{C,CR}
+IteratorSize(::Type{State{C,CR}}) where {C,CR} = Base.SizeUnknown()
 function iterate(fsa_state::State, state = [fsa_state])
     if isempty(state)
         nothing
@@ -236,8 +237,8 @@ prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}} = ru
 
 function update_approx_probs!(rule::ApproxRule{C,C}, fg::FragmentGrammar{C}) where C
     # Should really use broadcasting or something here...
+    cat = lhs(rule)
     for (i, (r,p)) in enumerate(rule.rules)
-        cat = lhs(r)
         if r isa BaseRule
             new_p = logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
             rule.prob += new_p

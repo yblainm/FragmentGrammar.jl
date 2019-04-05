@@ -8,6 +8,7 @@ module tests
 # include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 # using .GeneralizedChartparsing
 # using .GeneralizedChartparsing: run_chartparser
+# using LogProbs
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
@@ -23,29 +24,52 @@ using .FragmentGrammars: ApproxRule, update_approx_probs!
 println("-----start-----")
 @time fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.2, 0.5)
 
-
+# @show collect(fg.startstate)
+# collect(fg.startstate)
 # ---------- Parsing ------------
-@time for i in 1:1
-    anal = Analysis(sample(fg, "S")...)
-    add_obs!(fg, anal)
-    # println(fg.CRP)
-    println("----before----")
-    for state in fg.startstate
-        println("----new state----")
-        for comp in state.comp
-            println("$(comp[2].rules)")
-        end
+for j in 1:1
+    for i in 1:10
+       @time anal = Analysis(sample(fg, "S")...)
+       @time add_obs!(fg, anal)
+       # @time rm_obs!(fg, anal)
     end
-    rm_obs!(fg, anal)
-    # println(fg.CRP)
-    println("----after----")
-    for state in fg.startstate
-        println("----new state----")
-        for comp in state.comp
-            println("$(comp[2].rules)")
-        end
-    end
+    @time update_approx_probs!(fg)
+    @time forest = run_chartparser(["a" for i in 1:10], fg)
+    @time sampled_approx_tree = sample_tree(forest)
+    @time approx_sampled_rule = sample(sampled_approx_tree.data[2]) # sample from ApproxRule. Seems like this method is sometimes extremely slow for some reason.
+    # marg = zero(LogProb)
+    # for state in fg.startstate
+    #     for comp in state.comp
+    #         if comp[1] == "S"
+    #             marg += @show sum(r -> r[2], comp[2].rules)
+    #         end
+    #     end
+    # end
+    # @show marg
 end
+
+# @show fg
+# @time for i in 1:1
+#     anal = Analysis(sample(fg, "S")...)
+#     add_obs!(fg, anal)
+#     # println(fg.CRP)
+#     println("----before----")
+#     for state in fg.startstate
+#         println("----new state----")
+#         for comp in state.comp
+#             println("$(comp[2].rules)")
+#         end
+#     end
+#     rm_obs!(fg, anal)
+#     # println(fg.CRP)
+#     println("----after----")
+#     for state in fg.startstate
+#         println("----new state----")
+#         for comp in state.comp
+#             println("$(comp[2].rules)")
+#         end
+#     end
+# end
 # This is specifically for the parser + translating from approx PCFG to an analysis
 # It should always be called before doing anything ApproxRule-related.
 # for state in fg.startstate
