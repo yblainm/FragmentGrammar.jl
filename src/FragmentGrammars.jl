@@ -88,12 +88,14 @@ FragmentRule(fragment) = FragmentRule(fragment, fragment.tree.data, (getfield.(f
 mutable struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
     lhs :: C1
     rhs :: Tuple{Vararg{C2}}
-    rules :: Vector{Tuple{AbstractRule{C1,C2}, LogProb}}
+    rules :: Vector{AbstractRule{C1,C2}}
+    probs :: Vector{LogProb}
     prob :: LogProb
 end
 
 # Unzip rule-logprob pairs into two lists, cast the logprob list into floats, and call categorical_sample
-sample(r::ApproxRule) = categorical_sample((x->(x[1], float.(x[2])))(collect(zip(r.rules...)))...)
+sample(r::ApproxRule) = categorical_sample(r.rules, r.probs)
+# sample(r::ApproxRule) = categorical_sample((x->(x[1], float.(x[2])))(collect(zip(r.rules...)))...)
 categorical_sample(tokens::Vector{X}, weights::Vector{LogProb}) where X = categorical_sample(tokens, float.(weights))
 
 lhs(r::AbstractRule) = r.lhs
@@ -157,11 +159,11 @@ function add_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, h
     aridx = findall((comp -> comp[1] == head), s.comp)
     # @show aridx, head, cats, rule
     if isempty(aridx) # if no approx rule yet
-        ar = ApproxRule(head, cats, Tuple{AbstractRule{C,C},LogProb}[(rule, zero(LogProb))], zero(LogProb))
+        ar = ApproxRule(head, cats, AbstractRule{C,C}[rule], LogProb[zero(LogProb)], zero(LogProb))
         push!(s.comp, (head, ar))
     else
-        ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is ruleprob tuple
-        if !(rule in ar.rules) push!(ar.rules, (rule, zero(LogProb))) end
+        ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is approxrule
+        if !(rule in ar.rules) push!(ar.rules, rule); push!(ar.probs, zero(LogProb)) end
     end
     # push!(s.comp, (head, rule))
 end
@@ -182,11 +184,17 @@ function rm_rule!(state::State{C,AbstractRule{C,C}}, rule::AbstractRule{C,C}, he
         # Nothing needs to happen here, right?
     # else
     if !isempty(aridx) # Shouldn't this never be the case?
-        ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is ruleprob tuple
+        ar = s.comp[aridx[1]][2] # there can be only one! [2] because [1] is lhs and [2] is approxrule
         # @show ar.rules
-        filter!(r -> r[1]≠rule, ar.rules) # Remove "rule" from the approx rule
-        if isempty(ar.rules)
-            deleteat!(s.comp, aridx) # Remove empty approx rule from completions
+        ridx = findall(r -> r===rule, ar.rules)
+        if !isempty(ridx)
+            ridx = ridx[1] # there can be only one!
+            deleteat!(ar.rules, ridx)
+            deleteat!(ar.probs, ridx)
+            # filter!(r -> r[1]≠rule, ar.rules) # Remove "rule" from the approx rule
+            if isempty(ar.rules) && isempty(ar.probs)
+                deleteat!(s.comp, aridx) # Remove empty approx rule from completions
+            end
         end
     end
 end
@@ -238,19 +246,19 @@ prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}} = ru
 function update_approx_probs!(rule::ApproxRule{C,C}, fg::FragmentGrammar{C}) where C
     # Should really use broadcasting or something here...
     cat = lhs(rule)
-    for (i, (r,p)) in enumerate(rule.rules)
+    for (i,r) in enumerate(rule.rules)
         if r isa BaseRule
             new_p = logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
             rule.prob += new_p
-            rule.rules[i] = (r,new_p)
+            rule.probs[i] = new_p
         elseif r isa FragmentRule
             new_p = logscore(fg.CRP[cat], r.fragment, true)
             rule.prob += new_p
-            rule.rules[i] = (r,new_p)
+            rule.probs[i] = new_p
         else error("ApproxRule subrule is of type $(typeof(r)), should be BaseRule or FragmentRule") end
     end
 end
-update_approx_probs!(ruleprob::Tuple{C,ApproxRule{C,C}}, fg::FragmentGrammar{C}) where C = update_approx_probs!(ruleprob[2], fg)
+update_approx_probs!(completion::Tuple{C,ApproxRule{C,C}}, fg::FragmentGrammar{C}) where C = update_approx_probs!(completion[2], fg)
 update_approx_probs!(fg::FragmentGrammar) = for state in startstate(fg) update_approx_probs!.(state.comp, Ref(fg)) end
 
 """

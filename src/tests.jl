@@ -1,6 +1,7 @@
 #########
 # Tests #
 #########
+__precompile__()
 module tests
 
 # include("catalan_test.jl")
@@ -12,7 +13,7 @@ module tests
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
-using .FragmentGrammars: ApproxRule, update_approx_probs!
+using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb
 
 # TODO:
 # -
@@ -22,30 +23,50 @@ using .FragmentGrammars: ApproxRule, update_approx_probs!
 # T -> a
 
 println("-----start-----")
-@time fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.2, 0.5)
+# @time fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.5, 0.5)
+@time fg = FragmentGrammar([:S], [:S], [BaseRule(:S, (:S, :T)), BaseRule(:S, (:T, :S)), BaseRule(:S, (:T,))], [:a], [BaseRule(:T, (:a,))], 0.5, 0.5)
 
 # @show collect(fg.startstate)
 # collect(fg.startstate)
 # ---------- Parsing ------------
-for j in 1:1
-    for i in 1:10
-       @time anal = Analysis(sample(fg, "S")...)
-       @time add_obs!(fg, anal)
-       # @time rm_obs!(fg, anal)
+for x in 1:1
+    for j in 1:1
+        for i in 1:1
+           # @time
+           anal = Analysis(sample(fg, :S)...)
+           # @time
+           add_obs!(fg, anal)
+           # rm_obs!(fg, anal)
+           # @time rm_obs!(fg, anal)
+        end
+        @show j
     end
     @time update_approx_probs!(fg)
-    @time forest = run_chartparser(["a" for i in 1:10], fg)
+    @time update_approx_probs!(fg)
+    @time forest = run_chartparser([:a for i in 1:10], fg)
+    @time forest = run_chartparser([:a for i in 1:10], fg)
+    @time sampled_approx_tree = sample_tree(forest)
     @time sampled_approx_tree = sample_tree(forest)
     @time approx_sampled_rule = sample(sampled_approx_tree.data[2]) # sample from ApproxRule. Seems like this method is sometimes extremely slow for some reason.
-    # marg = zero(LogProb)
-    # for state in fg.startstate
-    #     for comp in state.comp
-    #         if comp[1] == "S"
-    #             marg += @show sum(r -> r[2], comp[2].rules)
-    #         end
-    #     end
-    # end
-    # @show marg
+    @time approx_sampled_rule = sample(sampled_approx_tree.data[2])
+
+    marg = zero(LogProb)
+    @show marg
+    num = zero(Int)
+    for state in fg.startstate
+        for comp in state.comp
+            if comp[1] === :S
+                marg += @show sum(comp[2].probs)
+                num += @show length(comp[2].probs)
+            end
+        end
+    end
+    @show marg
+    @show num
+    @show fg.CRP[:S].num_tables
+    @show fg.CRP[:S].num_customers
+    @show fg.DM
+    @show fg.BB
 end
 
 # @show fg
