@@ -16,7 +16,7 @@ using .FragmentGrammars
 using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb
 
 # TODO:
-# -
+# -For Constituent conditioning (span-wise conditioning), modify parser_methods line 166 run_chartparser(input::Vector, grammar, dependency_matrix::AbstractMatrix{Bool}, parsing_method=:full; epsilon=missing) so that the dependency matrix is something like a Dict where we index by category and span.
 
 # Test FG with base grammar:
 # S -> S T | T S | T
