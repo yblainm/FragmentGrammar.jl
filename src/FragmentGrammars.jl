@@ -13,7 +13,7 @@ import Base: iterate, eltype, IteratorSize#, length, show
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
 using .GeneralizedChartparsing.Trees
-using .GeneralizedChartparsing: run_chartparser, sample_tree
+using .GeneralizedChartparsing: run_chartparser, sample_tree, Constituent
 import .GeneralizedChartparsing: lhs, rhs, category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, add_rule!, startsymbols, score_type, state_type, completions, prob
 import .GeneralizedChartparsing: categorical_sample
 
@@ -420,6 +420,32 @@ function rm_obs!(fg :: FragmentGrammar, analysis :: Analysis)
         # rm completions to finite state machine (for approx. PCFG)
         fr = FragmentRule(frag_ptr.fragment)
         rm_rule!(startstate(fg), fr, lhs(fr), rhs(fr))
+    end
+end
+
+function sample(tree :: Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGrammar{C}) where {Cons<:Constituent, C}
+    cons, rule = tree.data
+    # if rule isa BaseRule{C,C} # If the tree rule is BaseRule, then it's a terminal rule.
+    #     # or lhs(rule) in preterminals(fg), but maybe that could be slow?
+    #     return TreeNode(lhs(rule)) # Tree leaf with the preterminal.
+
+    #=else=#
+    if rule isa ApproxRule{C,C} # If it's ApproxRule, we care about it. We may still sample a BaseRule from this.
+        sampled_rule = sample(rule)
+
+        local returned_value # TODO: Find out what this should be. Presumably (frag, dm_obs, bb_obs, crp_obs).
+        for child in tree.children
+            returned_value = sample(child, fg)
+            # TODO: Do something with this!
+        end
+
+        if sampled_rule isa BaseRule{C,C}
+            # TODO: -Make a fragment of current contiguous tree fragment and bookkeep (crp_obs vector or something)
+            #       -Flip a coin to decide if this fragment's tree will continue being the current contiguous tree fragment
+        elseif sampled_rule isa FragmentRule{C,C}
+            # TODO: -Using the lower-depth returned_value, if it is "expanded", then add its tree fragment (deepcopy?) as a child of this one's appropriate variable node. If it is not, keep track of it using "pointers" (dict using pairs of TreeNode => Fragment).
+            # NOTE: -Maybe the coin should be flipped here and not in the above block.
+        end
     end
 end
 

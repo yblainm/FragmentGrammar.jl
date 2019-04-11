@@ -46,27 +46,34 @@ for x in 1:1
     @time forest = run_chartparser([:a for i in 1:10], fg)
     @time forest = run_chartparser([:a for i in 1:10], fg)
     @time sampled_approx_tree = sample_tree(forest)
-    @time sampled_approx_tree = sample_tree(forest)
-    @time approx_sampled_rule = sample(sampled_approx_tree.data[2]) # sample from ApproxRule. Seems like this method is sometimes extremely slow for some reason.
-    @time approx_sampled_rule = sample(sampled_approx_tree.data[2])
+    @time @show sampled_approx_tree = sample_tree(forest)
+    @show typeof(sampled_approx_tree)
 
-    marg = zero(LogProb)
-    @show marg
-    num = zero(Int)
-    for state in fg.startstate
-        for comp in state.comp
-            if comp[1] === :S
-                marg += @show sum(comp[2].probs)
-                num += @show length(comp[2].probs)
-            end
-        end
+    for tree in sampled_approx_tree
+        println(tree.data[2])
     end
-    @show marg
-    @show num
-    @show fg.CRP[:S].num_tables
-    @show fg.CRP[:S].num_customers
-    @show fg.DM
-    @show fg.BB
+    sample(sampled_approx_tree, fg) # TODO: actually implement this.
+
+    # @time approx_sampled_rule = sample(sampled_approx_tree.data[2]) # sample from ApproxRule. Seems like this method is sometimes extremely slow for some reason.
+    # @time approx_sampled_rule = sample(sampled_approx_tree.data[2])
+    #
+    # marg = zero(LogProb)
+    # @show marg
+    # num = zero(Int)
+    # for state in fg.startstate
+    #     for comp in state.comp
+    #         if comp[1] === :S
+    #             marg += @show sum(comp[2].probs)
+    #             num += @show length(comp[2].probs)
+    #         end
+    #     end
+    # end
+    # @show marg
+    # @show num
+    # @show fg.CRP[:S].num_tables
+    # @show fg.CRP[:S].num_customers
+    # @show fg.DM
+    # @show fg.BB
 end
 
 # @show fg
