@@ -21,29 +21,7 @@ include("CompoundDists.jl");
 using .CompoundDists
 import .CompoundDists: sample, add_obs!, rm_obs!
 
-# TODO:
-#   -Redefine FG with Vararg RHS base rules for indexing probs/etc.
-#   -Redefine base measure with RHS base rules, idem.
-#   -See below, what is needed to define these?
-#   -Presumably a completion dict as a field of the FG
-### Grammar-parser interface
-"""The parser interacts with the grammar using the following functions.
-
-(SEE /src/GeneralizedChartparsing/src/grammars/grammar_interface.jl)
-
-startstate(grammar)
-startsymbols(grammar)
-prob(grammar, category, rule) # prob of application
-completions(grammar, state)
-completions(grammar, terminal)
-is_possible_transition(grammar, state, category)
-transition(grammar, state, category)
-isfinal(state) # only for improving performance
-
-### The parser
-
-The file 'src/parser/parser_types.jl' contains the type declarations of traversals, completions, keys, edges, constituents, the parser logbook, the chart, the agenda, and the parse forest -- the return type of the parser."""
-
+# TODO: ALL OF THIS BADLY NEEDS TO BE REFACTORED.
 
 ###########################
 # Helper structs and functions #
@@ -423,30 +401,76 @@ function rm_obs!(fg :: FragmentGrammar, analysis :: Analysis)
     end
 end
 
-function sample(tree :: Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGrammar{C}) where {Cons<:Constituent, C}
-    cons, rule = tree.data
-    # if rule isa BaseRule{C,C} # If the tree rule is BaseRule, then it's a terminal rule.
-    #     # or lhs(rule) in preterminals(fg), but maybe that could be slow?
-    #     return TreeNode(lhs(rule)) # Tree leaf with the preterminal.
+# TODO: Refactor this method so it isn't spaghetti
+function sample(parsetree :: Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGrammar{C,CR,T,TR}) where {Cons<:Constituent, C, CR, T, TR}
+    cons, rule = parsetree.data
 
-    #=else=#
-    if rule isa ApproxRule{C,C} # If it's ApproxRule, we care about it. We may still sample a BaseRule from this.
+    local tree, frag
+    variables = Tree{C}[]
+    leaves = Tree{C}[]
+    children = Dict{Tree, Pointer}()
+
+    dm_obs = Tuple{C,CR}[]
+    bb_obs = Pair{Tuple{C, CR, C}, Bool}[]
+    crp_obs = Fragment[]
+
+    if rule isa ApproxRule{C,C} # If it's ApproxRule, we care about it, i.e. it's not a preterminal. We may still sample a BaseRule from this.
         sampled_rule = sample(rule)
-
-        local returned_value # TODO: Find out what this should be. Presumably (frag, dm_obs, bb_obs, crp_obs).
-        for child in tree.children
-            returned_value = sample(child, fg)
-            # TODO: Do something with this!
-        end
 
         if sampled_rule isa BaseRule{C,C}
             # TODO: -Make a fragment of current contiguous tree fragment and bookkeep (crp_obs vector or something)
             #       -Flip a coin to decide if this fragment's tree will continue being the current contiguous tree fragment
+            push!(dm_obs, sampled_rule)
+            tree = Tree(lhs(rule))
+
+            for child in parsetree.children
+                child_cat = lhs(child.data[2])
+                ptr_child, dm_obs_child, bb_obs_child, crp_obs_child = sample(child, fg)
+
+                if ptr_child != nothing
+                    append!(dm_obs, dm_obs_child)
+                    append!(bb_obs, bb_obs_child)
+                    append!(crp_obs, crp_obs_child)
+
+                    bbidx = (lhs(rule), sampled_rule, child_cat)
+                    extend = sample(fg.BB[bbidx])
+                    push!(bb_obs, bbidx => extend)
+
+                    if extend
+                        frag_child = deepcopy(ptr_child.fragment) # NOTE : Does deepcopy work as needed?
+                        # Another idea is just to go through the leaves of the copied tree and, if they're not in preterminals(fg), put them in variables.
+                        tree_child = frag_child.tree
+                        insert_child!(tree, tree_child)
+                        append!(variables, frag_child.variables)
+                        append!(leaves, frag_child.leaves)
+                    else
+                        variable_tree = TreeNode(child_cat)
+                        insert_child!(tree, variable_tree)
+                        push!(children, variable_tree => ptr_child)
+                    end
+
+                else
+                    # TODO: Return just a tree leaf or something.
+                end
+            end
+
+            frag = Fragment(tree, variables, leaves)
+            push!(crp_obs, frag)
+            return Pointer(frag, children), dm_obs, bb_obs, crp_obs
+
         elseif sampled_rule isa FragmentRule{C,C}
-            # TODO: -Using the lower-depth returned_value, if it is "expanded", then add its tree fragment (deepcopy?) as a child of this one's appropriate variable node. If it is not, keep track of it using "pointers" (dict using pairs of TreeNode => Fragment).
-            # NOTE: -Maybe the coin should be flipped here and not in the above block.
+            frag = deepcopy(sampled_rule.fragment)
+
+            for (i, child) in enumerate(parsetree.children)
+                leaf_node = frag.leaves[i]
+                # For each of these recurse. If return != nothing, do the logical stuff, etc.
+            end
         end
+
+    elseif rule isa BaseRule{C,C} # If terminal rule, just return nothing and the caller will make a leaf from the preterminal.
+        return nothing, dm_obs, bb_obs, crp_obs
     end
+
 end
 
 end

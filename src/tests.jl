@@ -52,7 +52,7 @@ for x in 1:1
     for tree in sampled_approx_tree
         println(tree.data[2])
     end
-    sample(sampled_approx_tree, fg) # TODO: actually implement this.
+    # sample(sampled_approx_tree, fg) # TODO: actually implement this.
 
     # @time approx_sampled_rule = sample(sampled_approx_tree.data[2]) # sample from ApproxRule. Seems like this method is sometimes extremely slow for some reason.
     # @time approx_sampled_rule = sample(sampled_approx_tree.data[2])
