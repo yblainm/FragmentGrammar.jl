@@ -156,7 +156,9 @@ function logscore(dc::DirCat, obs)
 end
 
 function logscore(dc::DirCat)
-
+    LogProb(sum(lgamma.(values(dc.counts)))-lgamma(sum(values(dc.counts)))
+    + lgamma(length(dc.counts)*dc.pseudocount)-length(dc.counts)*lgamma(dc.pseudocount),
+    islog=true)
 end
 
 add_obs!(dc::DirCat, obs) = dc.counts[obs] += 1
