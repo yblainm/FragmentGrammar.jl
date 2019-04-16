@@ -37,6 +37,34 @@ struct Pointer
     children :: Dict{Tree, Pointer}
 end
 
+function clone(ptr::Pointer)
+    function clone(ptr::Pointer, tree::Tree, variables::Vector{Tree}, leaves::Vector{Tree}, children::Dict{Tree, Pointer})
+        newtree = TreeNode(tree.data)
+        if !isempty(tree.children)
+            for child in tree.children
+                insert_child!(newtree, clone(ptr, child, variables, leaves, children))
+            end
+        else
+            if tree in ptr.fragment.variables
+                if get(ptr.children, tree, nothing) != nothing
+                    push!(children, newtree => ptr.children[tree])
+                end
+                push!(variables, newtree)
+                push!(leaves, newtree)
+            elseif tree in ptr.fragment.leaves
+                push!(leaves, newtree)
+            end
+        end
+        return newtree
+    end
+    variables = Tree[]
+    leaves = Tree[]
+    children = Dict{Tree, Pointer}()
+    return Pointer(Fragment(clone(ptr, ptr.fragment.tree, variables, leaves, children), variables, leaves), children)
+end
+
+clone(frag::Fragment) = clone(Pointer(frag, Dict{Tree,Pointer}())).fragment
+
 struct Analysis{C, CR} # Is this struct even needed? It's basically a Tuple of what comes out of FG sample
     pointer :: Pointer
     dm_obs :: Vector{Tuple{C,CR}}
@@ -324,7 +352,7 @@ function sample(basedist :: BaseDistribution)
             if extend # if we extend the fragment
                 # Get (recursive) Pointer, DM counts, BB counts, and CRP counts (fragments)
                 ptr, dm_counts_child, bb_counts_child, crp_counts_child = sample(basedist.fg, child)
-                fragchild = ptr.fragment # We only need the fragment for the base distribution
+                fragchild = clone(ptr.fragment) # ptr.fragment # We only need the fragment for the base distribution
                 # Merge BB counts
                 append!(bb_counts, bb_counts_child)
                 # Merge DM counts
@@ -333,7 +361,7 @@ function sample(basedist :: BaseDistribution)
                 # If it's a new fragment, it may contain a fragment in crp_counts_child. If it's already stored, then it contains nothing.
                 append!(crp_counts, crp_counts_child)
                 # Add to tree
-                insert_child!(tree, deepcopy(fragchild.tree))   # Better than modifying the underlying tree if taken from CRP preexisting fragment
+                insert_child!(tree, fragchild.tree) # deepcopy(fragchild.tree))   # Better than modifying the underlying tree if taken from CRP preexisting fragment
                 # Merge variables (non-terminal leaves) from recursive calls to FG
                 append!(variables, fragchild.variables)
                 append!(leaves, fragchild.leaves)
@@ -414,14 +442,17 @@ function sample(parsetree :: Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGr
     bb_obs = Pair{Tuple{C, CR, C}, Bool}[]
     crp_obs = Fragment[]
 
-    if rule isa ApproxRule{C,C} # If it's ApproxRule, we care about it, i.e. it's not a preterminal. We may still sample a BaseRule from this.
+    if rule isa BaseRule{C,C} # If terminal rule, just return nothing and the caller will make a leaf from the preterminal.
+        return nothing, dm_obs, bb_obs, crp_obs
+
+    elseif rule isa ApproxRule{C,C} # If it's ApproxRule, we care about it, i.e. it's not a preterminal. We may still sample a BaseRule from this.
         sampled_rule = sample(rule)
 
         if sampled_rule isa BaseRule{C,C}
             # TODO: -Make a fragment of current contiguous tree fragment and bookkeep (crp_obs vector or something)
             #       -Flip a coin to decide if this fragment's tree will continue being the current contiguous tree fragment
-            push!(dm_obs, sampled_rule)
-            tree = Tree(lhs(rule))
+            push!(dm_obs, (lhs(rule), sampled_rule))
+            tree = TreeNode(lhs(rule))
 
             for child in parsetree.children
                 child_cat = lhs(child.data[2])
@@ -437,20 +468,25 @@ function sample(parsetree :: Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGr
                     push!(bb_obs, bbidx => extend)
 
                     if extend
-                        frag_child = deepcopy(ptr_child.fragment) # NOTE : Does deepcopy work as needed?
-                        # Another idea is just to go through the leaves of the copied tree and, if they're not in preterminals(fg), put them in variables.
+                        ptr_child_clone = clone(ptr_child) # Keeps references to the same other Pointer objects from variable nodes, but creates a clone of the underlying Fragment tree and variables/leaves Vectors.
+                        frag_child = ptr_child.fragment
                         tree_child = frag_child.tree
                         insert_child!(tree, tree_child)
                         append!(variables, frag_child.variables)
                         append!(leaves, frag_child.leaves)
+                        merge!(children, ptr_child_clone.children)
                     else
                         variable_tree = TreeNode(child_cat)
                         insert_child!(tree, variable_tree)
+                        push!(variables, variable_tree)
+                        push!(leaves, variable_tree)
                         push!(children, variable_tree => ptr_child)
                     end
-
                 else
-                    # TODO: Return just a tree leaf or something.
+                    # TODO: We're at a terminal rule child and are making a new fragment, so add preterminal tree node as leaf of fragment.
+                    tree_child = TreeNode(child_cat)
+                    insert_child!(tree, tree_child)
+                    push!(leaves, tree_child)
                 end
             end
 
@@ -459,16 +495,19 @@ function sample(parsetree :: Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGr
             return Pointer(frag, children), dm_obs, bb_obs, crp_obs
 
         elseif sampled_rule isa FragmentRule{C,C}
-            frag = deepcopy(sampled_rule.fragment)
-
+            push!(crp_obs, sampled_rule.fragment)
             for (i, child) in enumerate(parsetree.children)
-                leaf_node = frag.leaves[i]
-                # For each of these recurse. If return != nothing, do the logical stuff, etc.
+                leaf_node = sampled_rule.fragment.leaves[i]
+                if leaf_node in sampled_rule.fragment.variables # For each of these recurse. If return != nothing, do the logical stuff, etc.
+                    ptr_child, dm_obs_child, bb_obs_child, crp_obs_child = sample(child, fg)
+                    append!(dm_obs, dm_obs_child)
+                    append!(bb_obs, bb_obs_child)
+                    append!(crp_obs, crp_obs_child)
+                    push!(children, leaf_node => ptr_child)
+                end
             end
+            return Pointer(sampled_rule.fragment, children), dm_obs, bb_obs, crp_obs
         end
-
-    elseif rule isa BaseRule{C,C} # If terminal rule, just return nothing and the caller will make a leaf from the preterminal.
-        return nothing, dm_obs, bb_obs, crp_obs
     end
 
 end

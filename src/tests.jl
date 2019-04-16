@@ -13,7 +13,7 @@ module tests
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
-using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb
+using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb, clone
 
 # TODO:
 # -For Constituent conditioning (span-wise conditioning), modify parser_methods line 166 run_chartparser(input::Vector, grammar, dependency_matrix::AbstractMatrix{Bool}, parsing_method=:full; epsilon=missing) so that the dependency matrix is something like a Dict where we index by category and span.
@@ -30,6 +30,15 @@ println("-----start-----")
 # collect(fg.startstate)
 # ---------- Parsing ------------
 for x in 1:1
+    # p1 = sample(fg, :S)[1]
+    # p2 = clone(p1)
+    # @show p1
+    # @show p2
+    #
+    # for thing in values(p1.children)
+    #     @show thing in values(p2.children)
+    # end
+
     for j in 1:1
         for i in 1:1
            # @time
@@ -42,17 +51,18 @@ for x in 1:1
         @show j
     end
     @time update_approx_probs!(fg)
-    @time update_approx_probs!(fg)
-    @time forest = run_chartparser([:a for i in 1:10], fg)
-    @time forest = run_chartparser([:a for i in 1:10], fg)
+    # @time update_approx_probs!(fg)
+    @time forest = run_chartparser([:a for i in 1:5], fg)
+    # @time forest = run_chartparser([:a for i in 1:10], fg)
     @time sampled_approx_tree = sample_tree(forest)
-    @time @show sampled_approx_tree = sample_tree(forest)
+    # @time sampled_approx_tree = sample_tree(forest)
     @show typeof(sampled_approx_tree)
 
     for tree in sampled_approx_tree
         println(tree.data[2])
     end
-    # sample(sampled_approx_tree, fg) # TODO: actually implement this.
+    anal = Analysis(sample(sampled_approx_tree, fg)...) # TODO: actually implement this.
+    @show anal.pointer
 
     # @time approx_sampled_rule = sample(sampled_approx_tree.data[2]) # sample from ApproxRule. Seems like this method is sometimes extremely slow for some reason.
     # @time approx_sampled_rule = sample(sampled_approx_tree.data[2])
