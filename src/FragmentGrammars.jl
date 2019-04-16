@@ -270,7 +270,7 @@ update_approx_probs!(fg::FragmentGrammar) = for state in startstate(fg) update_a
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
 """
-function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2) where {C, CR<:BaseRule{C,C}, T, TR}
+function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2, dm_pseudo=1.0) where {C, CR<:BaseRule{C,C}, T, TR}
     # cat_rules = Vector{CR}(cat_rules)
     startstate = State(C, AbstractRule{C,C})# ApproxRule{C,C})
     for r in cat_rules
@@ -279,7 +279,7 @@ function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{C
     end
 
     CRP = Dict{C,ChineseRest{Fragment}}()
-    DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat{CR,Float64}(Dict(x => 1.0 for x in CR[r for (i, r) in enumerate(cat_rules) if lhs(r) == cat])) for (j, cat) in enumerate(cats))
+    DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat{CR,Float64}(Dict(x => dm_pseudo for x in CR[r for (i, r) in enumerate(cat_rules) if lhs(r) == cat]), dm_pseudo) for (j, cat) in enumerate(cats))
     BB = Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}((lhs(r), r, rhs) => BetaBern(1, 1) for r in cat_rules for rhs in rhs(r))
     preterminals = C[]
     terminal_dict = Dict{T, Vector{Tuple{C, TR}}}()
@@ -529,6 +529,14 @@ function boolean_dependency_dict(tree::Tree{C}) where C
     helper(tree, dependency_dict, Ref(1))
     @show dependency_dict
     return dependency_dict
+end
+
+function run_mcmc(fg::FragmentGrammar, analyses::Dict{Tree,Analysis}, sweeps=1)
+    for i in 1:sweeps
+        for base_grammar_tree in keys(analyses)
+
+        end
+    end
 end
 
 end

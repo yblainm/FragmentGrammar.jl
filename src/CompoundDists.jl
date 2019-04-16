@@ -1,7 +1,7 @@
 module CompoundDists
 
 using StatsFuns.RFunctions: betarand, gammarand
-using SpecialFunctions: lbeta
+using SpecialFunctions: lbeta, lgamma
 using LogProbs
 
 # distribution types
@@ -74,6 +74,13 @@ function logscore(bb::BetaBern, obs)
     LogProb(lbeta(k+bb.alpha, 1-k+bb.beta) - lbeta(bb.alpha, bb.beta), islog=true)
 end
 
+function logscore(bb::BetaBern)
+    LogProb(lgamma(bb.alpha+bb.beta)-lgamma(bb.alpha)-lgamma(bb.beta)
+    + lgamma(bb.alpha+bb.heads)+lgamma(bb.beta + bb.tails)
+    -lgamma(bb.alpha+bb.beta+bb.alpha+bb.beta),
+    islog=true)
+end
+
 #does this initialize such that you've observed each thing once?
 add_obs!(bb::BetaBern, obs) = obs == bb.heads ? bb.alpha += 1 : bb.beta += 1
 rm_obs!(bb::BetaBern, obs)  = obs == bb.heads ? bb.alpha -= 1 : bb.beta -= 1
@@ -132,9 +139,10 @@ rm_obs!(dc::DirMul{T}, obs::T) where T = dc.counts[obs] -= 1
 #same as the one above, but you only sample once
 mutable struct DirCat{T, C} <: Distribution{T}
     counts :: Dict{T, C}
+    pseudocount :: C
 end
 
-DirCat(support) = DirCat(Dict(x => 1.0 for x in support))
+DirCat(support) = DirCat(Dict(x => 1.0 for x in support), 0.0)
 support(dc::DirCat) = keys(dc.counts)
 
 function sample(dc::DirCat)
@@ -145,6 +153,10 @@ end
 #always the same because probabilities are uniform
 function logscore(dc::DirCat, obs)
     LogProb(lbeta(sum(values(dc.counts)), 1) - lbeta(dc.counts[obs], 1), islog=true)
+end
+
+function logscore(dc::DirCat)
+
 end
 
 add_obs!(dc::DirCat, obs) = dc.counts[obs] += 1

@@ -64,15 +64,18 @@ for x in 1:1
     @time sampled_approx_tree2 = sample_tree(forest2)
     # @time sampled_approx_tree = sample_tree(forest)
     # @show typeof(sampled_approx_tree)
-
     @show 1
+    @time sampled_analysis_tree1 = sample(sampled_approx_tree2, fg)
+    @show sampled_analysis_tree1
     for tree in sampled_approx_tree1
-        println(tree.data[1])
+        println(tree.data[1], tree.data[2])
     end
-    @show 2
-    for tree in sampled_approx_tree2
-        println(tree.data[1])
-    end
+    # @show 2
+    # @time sampled_analysis_tree2 = sample(sampled_approx_tree2, fg)
+    # @show sampled_analysis_tree2
+    # for tree in sampled_approx_tree2
+    #     println(tree.data[1], tree.data[2])
+    # end
     # anal = Analysis(sample(sampled_approx_tree, fg)...) # TODO: actually implement this.
     # @show anal.pointer
 
