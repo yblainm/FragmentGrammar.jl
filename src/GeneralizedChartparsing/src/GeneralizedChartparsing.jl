@@ -31,6 +31,7 @@ using Setfield
 ### Exported methods and types ###
 ##################################
 
+
 # semi-rings
 export LogProb,
        Product

@@ -186,3 +186,27 @@ function run_chartparser(input::Vector, grammar, dependency_matrix::AbstractMatr
     end
     ParseForest(chart, logbook, input, grammar)
 end
+
+function run_chartparser(input::Vector, grammar, dependency_dict::AbstractDict{Tuple{C, Int, Int},Bool}, parsing_method=:full; epsilon=missing) where C
+    # input = map(terminal_type(grammar), input) :: Vector{terminal_type(grammar)}
+    chart, agenda, logbook = initialize(input, grammar, parsing_method, epsilon)
+    while !isempty(agenda)
+        # finish = do inference and insert or accumulate
+        id = dequeue!(agenda)
+        if id > 0 # then id is an edge id
+            finish!(get_edge(logbook, id), chart, agenda, logbook, grammar)#::Void
+        else
+            cons = get_cons(logbook, id)
+            # println(dependency_matrix[start(cons), tail(cons)])
+            if get(dependency_dict, (cat(cons), start(cons), tail(cons)), false)
+                # println(cons)
+                finish!(cons, chart, agenda, logbook, grammar)#::Void
+
+                if parsing_method == :viterbi && length(cons) == length(input) && cat(cons) in startsymbols(grammar)
+                    break
+                end
+            end
+        end
+    end
+    ParseForest(chart, logbook, input, grammar)
+end

@@ -2,7 +2,7 @@ __precompile__()
 module FragmentGrammars
 
 export Analysis, BaseDistribution, BaseRule, FragmentRule, AbstractRule, Fragment, Pointer, FragmentGrammar
-export sample, add_obs!, rm_obs!, iterate
+export sample, add_obs!, rm_obs!
 export run_chartparser, sample_tree
 export category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, startsymbols, score_type, state_type, completions, prob
 export iterate, eltype, IteratorSize
@@ -13,9 +13,9 @@ import Base: iterate, eltype, IteratorSize#, length, show
 include("GeneralizedChartparsing\\src\\GeneralizedChartparsing.jl")
 using .GeneralizedChartparsing
 using .GeneralizedChartparsing.Trees
-using .GeneralizedChartparsing: run_chartparser, sample_tree, Constituent
+using .GeneralizedChartparsing: sample_tree, Constituent
 import .GeneralizedChartparsing: lhs, rhs, category_type, terminal_type, category_rule_type, terminal_rule_type, startstate, add_rule!, startsymbols, score_type, state_type, completions, prob
-import .GeneralizedChartparsing: categorical_sample
+import .GeneralizedChartparsing: run_chartparser, categorical_sample
 
 include("CompoundDists.jl");
 using .CompoundDists
@@ -509,7 +509,26 @@ function sample(parsetree :: Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGr
             return Pointer(sampled_rule.fragment, children), dm_obs, bb_obs, crp_obs
         end
     end
+end
 
+run_chartparser(input::Tree, fg::FragmentGrammar) = run_chartparser(leaf_data(input), fg, boolean_dependency_dict(input))
+
+function boolean_dependency_dict(tree::Tree{C}) where C
+    dependency_dict = Dict{Tuple{C,Int,Int},Bool}()
+    function helper(tree, dependency_dict::Dict{Tuple{C,Int,Int}, Bool}, dot::Ref{Int})
+        start = dot[]
+        if isempty(tree.children)
+            dot[] += 1
+        else
+            for child in tree.children
+                helper(child, dependency_dict, dot)
+            end
+        end
+        push!(dependency_dict, (tree.data, start, dot[])=>true)
+    end
+    helper(tree, dependency_dict, Ref(1))
+    @show dependency_dict
+    return dependency_dict
 end
 
 end

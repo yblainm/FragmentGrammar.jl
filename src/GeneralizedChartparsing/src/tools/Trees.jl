@@ -6,7 +6,8 @@ export Tree, EmptyTree, TreeNode,
        isterminal, insert_child!,
        tree, lisp_tree_structure, parenthesis_to_brackets,
        start, next, done, eltype,
-       leafs, leaf_data
+       leafs, leaf_data,
+       iterate, eltype, IteratorSize
 
 abstract type Tree{T} end
 
@@ -47,7 +48,7 @@ end
 
 function tree(str::AbstractString)
   node = TreeNode("")
-  str = replace(str, " ", "")[2:end-1]
+  str = replace(str, " "=>"")[2:end-1]
 
   for c in str
     if c == '['

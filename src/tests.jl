@@ -13,7 +13,7 @@ module tests
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
-using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb, clone
+using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb, clone, boolean_dependency_dict, TreeNode, tree
 
 # TODO:
 # -For Constituent conditioning (span-wise conditioning), modify parser_methods line 166 run_chartparser(input::Vector, grammar, dependency_matrix::AbstractMatrix{Bool}, parsing_method=:full; epsilon=missing) so that the dependency matrix is something like a Dict where we index by category and span.
@@ -23,13 +23,18 @@ using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, L
 # T -> a
 
 println("-----start-----")
-# @time fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.5, 0.5)
-@time fg = FragmentGrammar([:S], [:S], [BaseRule(:S, (:S, :T)), BaseRule(:S, (:T, :S)), BaseRule(:S, (:T,))], [:a], [BaseRule(:T, (:a,))], 0.5, 0.5)
-
+@time fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.5, 0.5)
+# @time fg = FragmentGrammar([:S], [:S], [BaseRule(:S, (:S, :T)), BaseRule(:S, (:T, :S)), BaseRule(:S, (:T,))], [:a], [BaseRule(:T, (:a,))], 0.5, 0.5)
+@show test_tree = tree("[S[S[S[S[T[a]]][T[a]]][T[a]]][T[a]]]")
 # @show collect(fg.startstate)
 # collect(fg.startstate)
 # ---------- Parsing ------------
 for x in 1:1
+    # anal = Analysis(sample(fg, :S)...)
+    # t = anal.pointer.fragment.tree
+    # @show t
+    # @show boolean_dependency_dict(t)
+
     # p1 = sample(fg, :S)[1]
     # p2 = clone(p1)
     # @show p1
@@ -40,9 +45,9 @@ for x in 1:1
     # end
 
     for j in 1:1
-        for i in 1:1
+        for i in 1:100
            # @time
-           anal = Analysis(sample(fg, :S)...)
+           anal = Analysis(sample(fg, "S")...)
            # @time
            add_obs!(fg, anal)
            # rm_obs!(fg, anal)
@@ -52,17 +57,24 @@ for x in 1:1
     end
     @time update_approx_probs!(fg)
     # @time update_approx_probs!(fg)
-    @time forest = run_chartparser([:a for i in 1:5], fg)
-    # @time forest = run_chartparser([:a for i in 1:10], fg)
-    @time sampled_approx_tree = sample_tree(forest)
+    # @time forest = run_chartparser(["a" for i in 1:5], fg)
+    @time forest1 = run_chartparser(test_tree, fg)
+    @time sampled_approx_tree1 = sample_tree(forest1)
+    @time forest2 = run_chartparser(["a", "a", "a", "a"], fg)
+    @time sampled_approx_tree2 = sample_tree(forest2)
     # @time sampled_approx_tree = sample_tree(forest)
-    @show typeof(sampled_approx_tree)
+    # @show typeof(sampled_approx_tree)
 
-    for tree in sampled_approx_tree
-        println(tree.data[2])
+    @show 1
+    for tree in sampled_approx_tree1
+        println(tree.data[1])
     end
-    anal = Analysis(sample(sampled_approx_tree, fg)...) # TODO: actually implement this.
-    @show anal.pointer
+    @show 2
+    for tree in sampled_approx_tree2
+        println(tree.data[1])
+    end
+    # anal = Analysis(sample(sampled_approx_tree, fg)...) # TODO: actually implement this.
+    # @show anal.pointer
 
     # @time approx_sampled_rule = sample(sampled_approx_tree.data[2]) # sample from ApproxRule. Seems like this method is sometimes extremely slow for some reason.
     # @time approx_sampled_rule = sample(sampled_approx_tree.data[2])
