@@ -6,7 +6,7 @@ export Tree, EmptyTree, TreeNode,
        isterminal, insert_child!,
        tree, lisp_tree_structure, parenthesis_to_brackets,
        start, next, done, eltype,
-       leafs, leaf_data,
+       leafs, leaf_data, data,
        iterate, eltype, IteratorSize
 
 abstract type Tree{T} end
@@ -26,6 +26,8 @@ TreeNode(data::T, parent::Tree{T}) where T = TreeNode(data, parent, Vector{TreeN
 
 # TreeNode{T}(data::T, parent::Tree{T}) = TreeNode(data, parent, Vector{TreeNode{T}}())
 TreeNode(data, T=typeof(data)) = TreeNode(data, EmptyTree{T}())
+
+data(t::TreeNode) = t.data
 
 show(io::IO, tree::EmptyTree{T}) where T = print(io::IO, "[]")
 

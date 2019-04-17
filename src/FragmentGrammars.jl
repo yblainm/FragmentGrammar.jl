@@ -22,6 +22,8 @@ using .CompoundDists
 import .CompoundDists: sample, add_obs!, rm_obs!, logscore
 
 # TODO: ALL OF THIS BADLY NEEDS TO BE REFACTORED.
+# TODO: So much code can be turned into broadcasts
+# TODO: Coins are flipped for preterminals??? Sheesh. Fix that.
 
 ###########################
 # Helper structs and functions #
@@ -98,6 +100,9 @@ mutable struct ApproxRule{C1,C2} <: AbstractRule{C1,C2}
     probs :: Vector{LogProb}
     prob :: LogProb
 end
+
+approxprob(ar::ApproxRule) = ar.prob
+approxprob(br::BaseRule) = one(LogProb)
 
 # Unzip rule-logprob pairs into two lists, cast the logprob list into floats, and call categorical_sample
 sample(r::ApproxRule) = categorical_sample(r.rules, r.probs)
@@ -252,6 +257,7 @@ prob(fg::FragmentGrammar{C}, cat::C, rule::R) where {C, R<:ApproxRule{C,C}} = ru
 function update_approx_probs!(rule::ApproxRule{C,C}, fg::FragmentGrammar{C}) where C
     # Should really use broadcasting or something here...
     cat = lhs(rule)
+    rule.prob = zero(LogProb)
     for (i,r) in enumerate(rule.rules)
         if r isa BaseRule
             new_p = logscore(fg.DM[cat], r) * new_table_logscore(fg.CRP[cat])
@@ -266,6 +272,8 @@ function update_approx_probs!(rule::ApproxRule{C,C}, fg::FragmentGrammar{C}) whe
 end
 update_approx_probs!(completion::Tuple{C,ApproxRule{C,C}}, fg::FragmentGrammar{C}) where C = update_approx_probs!(completion[2], fg)
 update_approx_probs!(fg::FragmentGrammar) = for state in startstate(fg) update_approx_probs!.(state.comp, Ref(fg)) end
+
+logscore(fg::FragmentGrammar) = reduce(*, logscore.(values(fg.DM))) * reduce(*, logscore.(values(fg.CRP))) * reduce(*, logscore.(values(fg.BB)))
 
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
@@ -320,8 +328,6 @@ struct BaseDistribution{C} <: Distribution{Fragment}
 end
 
 show(io::IO, bd::BaseDistribution{C}) where C = print("BaseDistribution{$C}()")
-
-logscore(fg::FragmentGrammar) = reduce(*, logscore.(values(fg.DM))) * reduce(*, logscore.(values(fg.CRP))) * reduce(*, logscore.(values(fg.BB)))
 
 function sample(basedist :: BaseDistribution)
     C, CR, T, TR = category_type(basedist.fg), category_rule_type(basedist.fg), terminal_type(basedist.fg), terminal_rule_type(basedist.fg)
@@ -511,6 +517,12 @@ function sample(parsetree :: Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGr
     end
 end
 
+approx_rule(r::Tuple{Cons,AbstractRule}) where Cons <: Constituent = r[2]
+
+function logscore(approx_tree::Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGrammar{C,CR,T,TR}) where {Cons<:Constituent, C, CR, T, TR}
+    reduce(*, approxprob.(approx_rule.(data.(approx_tree))))
+end
+
 run_chartparser(input::Tree, fg::FragmentGrammar) = run_chartparser(leaf_data(input), fg, boolean_dependency_dict(input))
 
 function boolean_dependency_dict(tree::Tree{C}) where C
@@ -527,16 +539,110 @@ function boolean_dependency_dict(tree::Tree{C}) where C
         push!(dependency_dict, (tree.data, start, dot[])=>true)
     end
     helper(tree, dependency_dict, Ref(1))
-    @show dependency_dict
+    # @show dependency_dict
     return dependency_dict
 end
 
-function run_mcmc(fg::FragmentGrammar, analyses::Dict{Tree,Analysis}, sweeps=1)
-    for i in 1:sweeps
-        for base_grammar_tree in keys(analyses)
+function run_mcmc!(fg::FragmentGrammar, inputs::Vector{Tree}, sweeps=1)
+    update_approx_probs!(fg)
+    analyses = init_mcmc(fg, inputs)
+    add_obs!.([fg], getindex.(values(analyses),1))
+    update_approx_probs!(fg)
 
+    # local curr_prob::LogProb
+
+    for sweep in 1:sweeps
+        for input_tree in keys(analyses)
+            curr_prob = logscore(fg)
+            curr_analysis, curr_approx_tree = analyses[input_tree]
+            rm_obs!(fg, curr_analysis)
+
+            update_approx_probs!(fg) # F-f(i), needed for logscore(::Tree{Tuple{Cons,AbstractRule{C,C}}}, fg::FragmentGrammar) as well.
+
+            proposal_approx_tree = sample_tree(run_chartparser(input_tree, fg))
+            proposal_analysis = Analysis(sample(proposal_approx_tree, fg)...)
+            forward_trans_prob = logscore(proposal_approx_tree, fg)
+            reverse_trans_prob = logscore(curr_approx_tree, fg)
+
+            add_obs!(fg, proposal_analysis) # No need to update approx probs, not going to use them here.
+
+            new_prob = logscore(fg)
+
+            accept_prob = min(one(LogProb), new_prob/curr_prob * reverse_trans_prob/forward_trans_prob)
+            if flip(float(accept_prob)) == 0 # If we reject.
+                @show "Reject", accept_prob
+                rm_obs!(fg, proposal_analysis)
+                add_obs!(fg, curr_analysis)
+                @show curr_prob.log
+            else # If we accept.
+                @show "Accept", accept_prob
+                analyses[input_tree] = (proposal_analysis, proposal_approx_tree)
+                @show new_prob.log
+            end
+            update_approx_probs!(fg)
         end
     end
+    return analyses
+end
+
+function init_mcmc(fg::FragmentGrammar, inputs::Vector{Tree})
+    analyses = Dict{Tree,Tuple{Analysis,Tree}}()
+    for input_tree in inputs
+        analysis = Analysis(initialize_fragments(input_tree, fg)...)
+        approx_tree = sample_tree(run_chartparser(input_tree, fg)) # This should always be BaseRules
+        analyses[input_tree] = (analysis, approx_tree)
+    end
+    return analyses
+end
+
+function initialize_fragments(tree::Tree, fg::FragmentGrammar{C,CR}) where {C,CR}
+    variables = Tree{C}[]
+    leaves = Tree{C}[]
+    children = Dict{Tree, Pointer}()
+
+    dm_obs = Tuple{C,CR}[]
+    bb_obs = Pair{Tuple{C, CR, C}, Bool}[]
+    crp_obs = Fragment[]
+
+    l = tree.data
+
+    working_tree = TreeNode(l)
+
+    # FIND BASERULE USED
+    st = startstate(fg)
+    for child in tree.children
+        # I can assume that the FG only has base rules in its states right now.
+        st = transition(st, child.data)
+        insert_child!(working_tree, TreeNode(child.data))
+    end
+    ar = completions(st)[1][2] # Completion is Tuple{C, CR}
+    # ar had sure as hell better be a BaseRule at this point.
+    r = ar.rules[1] # There should seriously only be one.
+    push!(dm_obs, (lhs(r), r))
+
+    # RECURSE FOR FRAGMENTS, CHECK IF TERMINAL, ETC.
+    for (i, child) in enumerate(working_tree.children)
+        variable_tree = child
+        push!(leaves, variable_tree)
+
+        if !(child.data in preterminals(fg))
+            push!(variables, variable_tree)
+            bbidx = (lhs(r), r, child.data)
+            push!(bb_obs, bbidx => false)
+
+            ptr_child, dm_obs_child, bb_obs_child, crp_obs_child = initialize_fragments(tree.children[i], fg)
+            append!(dm_obs, dm_obs_child)
+            append!(bb_obs, bb_obs_child)
+            append!(crp_obs, crp_obs_child)
+
+            push!(children, variable_tree => ptr_child)
+        end
+    end
+
+    frag = Fragment(working_tree, variables, leaves)
+    push!(crp_obs, frag)
+
+    return Pointer(frag, children), dm_obs, bb_obs, crp_obs
 end
 
 end

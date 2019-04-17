@@ -13,7 +13,7 @@ module tests
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
-using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb, clone, boolean_dependency_dict, TreeNode, tree, logscore
+using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb, clone, boolean_dependency_dict, TreeNode, Tree, tree, logscore, initialize_fragments, init_mcmc, data, run_mcmc!
 
 # TODO:
 # -For Constituent conditioning (span-wise conditioning), modify parser_methods line 166 run_chartparser(input::Vector, grammar, dependency_matrix::AbstractMatrix{Bool}, parsing_method=:full; epsilon=missing) so that the dependency matrix is something like a Dict where we index by category and span.
@@ -25,36 +25,59 @@ using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, L
 println("-----start-----")
 @time fg = FragmentGrammar(["S"], ["S"], [BaseRule("S", ("S", "T")), BaseRule("S", ("T", "S")), BaseRule("S", ("T",))], ["a"], [BaseRule("T", ("a",))], 0.5, 0.5)
 # @time fg = FragmentGrammar([:S], [:S], [BaseRule(:S, (:S, :T)), BaseRule(:S, (:T, :S)), BaseRule(:S, (:T,))], [:a], [BaseRule(:T, (:a,))], 0.5, 0.5)
-@show test_tree = tree("[S[S[S[S[T[a]]][T[a]]][T[a]]][T[a]]]")
+@show test_trees = Tree[tree("[S[S[S[S[T[a]]][T[a]]][T[a]]][T[a]]]") for i in 1:10]
 # @show collect(fg.startstate)
 # collect(fg.startstate)
-# ---------- Parsing ------------
-for x in 1:1
-    # anal = Analysis(sample(fg, :S)...)
-    # t = anal.pointer.fragment.tree
-    # @show t
-    # @show boolean_dependency_dict(t)
+@show logscore(fg)
+@show logscore(fg).log
+# @show initialize_fragments(test_tree, fg)
+# @show init_mcmc(fg, Tree[test_tree])[test_tree][2] |> typeof
+# update_approx_probs!(fg)
 
-    # p1 = sample(fg, :S)[1]
-    # p2 = clone(p1)
-    # @show p1
-    # @show p2
-    #
-    # for thing in values(p1.children)
-    #     @show thing in values(p2.children)
-    # end
-
-    for j in 1:100
-        for i in 1:1000
-           # @time
-           anal = Analysis(sample(fg, "S")...)
-           # @time
-           add_obs!(fg, anal)
-           # rm_obs!(fg, anal)
-           # @time rm_obs!(fg, anal)
-        end
-        @show j
+analyses = run_mcmc!(fg, test_trees, 100)
+for i in keys(analyses)
+    @show "Tree $i"
+    for t in analyses[i][2]
+        @show t.data[1]
     end
+end
+@show logscore(fg)
+@show logscore(fg).log
+# @show anal = Analysis(sample(fg, "S")...)
+# add_obs!(fg, anal)
+#
+# # TO CHECK IF SUMS TO 1 -- WORKS FOR MCMC TOO
+# for i in 1:1
+#     marg = zero(LogProb)
+#     num = zero(Int)
+#     @show fg.startstate
+#     for state in fg.startstate
+#         for comp in state.comp
+#             if comp[1] == "S"
+#                 marg += @show comp[2].prob # sum(comp[2].probs)
+#                 num += @show length(comp[2].probs)
+#             end
+#         end
+#     end
+#     @show marg
+#     @show num
+# end
+
+# ---------- Parsing ------------
+# for x in 1:1
+#     for j in 1:1
+#         for i in 1:1
+#            # @time
+#            anal = Analysis(sample(fg, "S")...)
+#            # @time
+#            add_obs!(fg, anal)
+#            # rm_obs!(fg, anal)
+#            # @time rm_obs!(fg, anal)
+#         end
+#         @show j
+#     end
+# end
+end
     # @time update_approx_probs!(fg)
     # # @time update_approx_probs!(fg)
     # # @time forest = run_chartparser(["a" for i in 1:5], fg)
@@ -70,9 +93,6 @@ for x in 1:1
     # for tree in sampled_approx_tree1
     #     println(tree.data[1], tree.data[2])
     # end
-
-    @show logscore(fg)
-    @show logscore(fg).log
     # @show 2
     # @time sampled_analysis_tree2 = sample(sampled_approx_tree2, fg)
     # @show sampled_analysis_tree2
@@ -102,7 +122,6 @@ for x in 1:1
     # @show fg.CRP[:S].num_customers
     # @show fg.DM
     # @show fg.BB
-end
 
 # @show fg
 # @time for i in 1:1
@@ -207,5 +226,3 @@ end
 # @show a("test") |> typeof
 
 # using Profile # Lets you see how many backtraces (function calls) come from a specific code block during runtime. Good for finding bottlenecks.
-
-end

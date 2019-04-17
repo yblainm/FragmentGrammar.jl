@@ -260,27 +260,34 @@ end
 logscore(r::ChineseRest, dish, exists::Bool) = exists ? logscore_exists(r, dish) : logscore(r, dish)
 
 function add_obs!(r::ChineseRest{Dish}, dish::Dish) where Dish
-    r.num_customers += 1
     if !haskey(r.tables, dish)
+        newtablescore = new_table_logscore(r)
+        r.num_customers += 1
         r.num_tables += 1
         r.tables[dish] = [1]
-        r.total_prob *= new_table_logscore(r)
+        r.total_prob *= newtablescore
     else
+        customerscore = logscore_exists(r, dish)
+        r.num_customers += 1
         r.tables[dish][1] += 1
-        r.total_prob *= logscore_exists(r, dish)
+        r.total_prob *= customerscore
     end
     nothing
 end
 
 function rm_obs!(r::ChineseRest, dish)
-    r.num_customers -= 1
-    r.tables[dish][1] -= 1
-    if r.tables[dish][1] == 0
+    if r.tables[dish][1] - 1 == 0
+        r.num_customers -= 1
+        r.tables[dish][1] -= 1
         r.num_tables -= 1
         delete!(r.tables, dish)
-        r.total_prob /= logscore_exists(r, dish)
+        emptyscore = new_table_logscore(r)
+        r.total_prob /= emptyscore
     else
-        r.total_prob /= new_table_logscore(r)
+        r.num_customers -= 1
+        r.tables[dish][1] -= 1
+        notemptyscore = logscore_exists(r, dish)
+        r.total_prob /= notemptyscore
     end
     nothing
 end
