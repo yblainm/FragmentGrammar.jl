@@ -206,10 +206,13 @@ mutable struct ChineseRest{Dish, Dist <: Distribution{Dish}} <: Distribution{Dis
     tables :: Dict{Dish, Vector{Int}}
     num_tables :: Int
     num_customers :: Int
+    total_prob :: LogProb
 end
 
+logscore(r::ChineseRest) = r.total_prob
+
 ChineseRest(a, b, basedist::Distribution{T}) where T =
-    ChineseRest(a, b, basedist, Dict{T, Vector{Int}}(), 0, 0)
+    ChineseRest(a, b, basedist, Dict{T, Vector{Int}}(), 0, 0, one(LogProb))
 ChineseRest(support) = ChineseRest(0.0, 0.1, UniCat(support))
 support(r::ChineseRest) = support(r.basedist)
 
@@ -261,8 +264,10 @@ function add_obs!(r::ChineseRest{Dish}, dish::Dish) where Dish
     if !haskey(r.tables, dish)
         r.num_tables += 1
         r.tables[dish] = [1]
+        r.total_prob *= new_table_logscore(r)
     else
         r.tables[dish][1] += 1
+        r.total_prob *= logscore_exists(r, dish)
     end
     nothing
 end
@@ -273,6 +278,9 @@ function rm_obs!(r::ChineseRest, dish)
     if r.tables[dish][1] == 0
         r.num_tables -= 1
         delete!(r.tables, dish)
+        r.total_prob /= logscore_exists(r, dish)
+    else
+        r.total_prob /= new_table_logscore(r)
     end
     nothing
 end

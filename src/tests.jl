@@ -13,7 +13,7 @@ module tests
 
 include("FragmentGrammars.jl")
 using .FragmentGrammars
-using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb, clone, boolean_dependency_dict, TreeNode, tree
+using .FragmentGrammars: ApproxRule, update_approx_probs!, categorical_sample, LogProb, clone, boolean_dependency_dict, TreeNode, tree, logscore
 
 # TODO:
 # -For Constituent conditioning (span-wise conditioning), modify parser_methods line 166 run_chartparser(input::Vector, grammar, dependency_matrix::AbstractMatrix{Bool}, parsing_method=:full; epsilon=missing) so that the dependency matrix is something like a Dict where we index by category and span.
@@ -44,8 +44,8 @@ for x in 1:1
     #     @show thing in values(p2.children)
     # end
 
-    for j in 1:1
-        for i in 1:100
+    for j in 1:100
+        for i in 1:1000
            # @time
            anal = Analysis(sample(fg, "S")...)
            # @time
@@ -55,21 +55,24 @@ for x in 1:1
         end
         @show j
     end
-    @time update_approx_probs!(fg)
     # @time update_approx_probs!(fg)
-    # @time forest = run_chartparser(["a" for i in 1:5], fg)
-    @time forest1 = run_chartparser(test_tree, fg)
-    @time sampled_approx_tree1 = sample_tree(forest1)
-    @time forest2 = run_chartparser(["a", "a", "a", "a"], fg)
-    @time sampled_approx_tree2 = sample_tree(forest2)
-    # @time sampled_approx_tree = sample_tree(forest)
-    # @show typeof(sampled_approx_tree)
-    @show 1
-    @time sampled_analysis_tree1 = sample(sampled_approx_tree2, fg)
-    @show sampled_analysis_tree1
-    for tree in sampled_approx_tree1
-        println(tree.data[1], tree.data[2])
-    end
+    # # @time update_approx_probs!(fg)
+    # # @time forest = run_chartparser(["a" for i in 1:5], fg)
+    # @time forest1 = run_chartparser(test_tree, fg)
+    # @time sampled_approx_tree1 = sample_tree(forest1)
+    # @time forest2 = run_chartparser(["a", "a", "a", "a"], fg)
+    # @time sampled_approx_tree2 = sample_tree(forest2)
+    # # @time sampled_approx_tree = sample_tree(forest)
+    # # @show typeof(sampled_approx_tree)
+    # @show 1
+    # @time sampled_analysis_tree1 = sample(sampled_approx_tree2, fg)
+    # @show sampled_analysis_tree1
+    # for tree in sampled_approx_tree1
+    #     println(tree.data[1], tree.data[2])
+    # end
+
+    @show logscore(fg)
+    @show logscore(fg).log
     # @show 2
     # @time sampled_analysis_tree2 = sample(sampled_approx_tree2, fg)
     # @show sampled_analysis_tree2

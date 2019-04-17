@@ -19,7 +19,7 @@ import .GeneralizedChartparsing: run_chartparser, categorical_sample
 
 include("CompoundDists.jl");
 using .CompoundDists
-import .CompoundDists: sample, add_obs!, rm_obs!
+import .CompoundDists: sample, add_obs!, rm_obs!, logscore
 
 # TODO: ALL OF THIS BADLY NEEDS TO BE REFACTORED.
 
@@ -321,7 +321,7 @@ end
 
 show(io::IO, bd::BaseDistribution{C}) where C = print("BaseDistribution{$C}()")
 
-# logscore(::BaseDistribution, frag::Fragment) =
+logscore(fg::FragmentGrammar) = reduce(*, logscore.(values(fg.DM))) * reduce(*, logscore.(values(fg.CRP))) * reduce(*, logscore.(values(fg.BB)))
 
 function sample(basedist :: BaseDistribution)
     C, CR, T, TR = category_type(basedist.fg), category_rule_type(basedist.fg), terminal_type(basedist.fg), terminal_rule_type(basedist.fg)
