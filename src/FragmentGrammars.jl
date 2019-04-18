@@ -239,7 +239,7 @@ show(io::IO, crp::ChineseRest) =
 category_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = C
 terminal_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = T
 category_rule_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = AbstractRule{C,C}
-terminal_rule_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = AbstractRule{C,C}
+terminal_rule_type(fg::FragmentGrammar{C, CR, T, TR}) where {C, CR, T, TR} = AbstractRule{C,T}
 categories(fg::FragmentGrammar) = fg.categories
 terminals(fg::FragmentGrammar) = fg.terminals
 preterminals(fg::FragmentGrammar) = fg.preterminals
@@ -278,7 +278,7 @@ logscore(fg::FragmentGrammar) = reduce(*, logscore.(values(fg.DM))) * reduce(*, 
 """
     FragmentGrammar(categories, startcategories, category_rules, terminals, terminal_rules[, a::Float64, b::Float64])
 """
-function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2, dm_pseudo=1.0) where {C, CR<:BaseRule{C,C}, T, TR}
+function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{CR}, terms::Vector{T}, term_rules::Vector{TR}, a=0.01, b=0.2, dm_pseudo=1.0, bb_alpha=1, bb_beta=1) where {C, CR<:BaseRule{C,C}, T, TR}
     # cat_rules = Vector{CR}(cat_rules)
     startstate = State(C, AbstractRule{C,C})# ApproxRule{C,C})
     for r in cat_rules
@@ -288,7 +288,7 @@ function FragmentGrammar(cats::Vector{C}, starts::Vector{C}, cat_rules::Vector{C
 
     CRP = Dict{C,ChineseRest{Fragment}}()
     DM = Dict{C, DirCat{CR, Float64}}(cat => DirCat{CR,Float64}(Dict(x => dm_pseudo for x in CR[r for (i, r) in enumerate(cat_rules) if lhs(r) == cat]), dm_pseudo) for (j, cat) in enumerate(cats))
-    BB = Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}((lhs(r), r, rhs) => BetaBern(1, 1) for r in cat_rules for rhs in rhs(r))
+    BB = Dict{Tuple{C, CR, C}, BetaBern{Bool, Int}}((lhs(r), r, rhs) => BetaBern(bb_alpha, bb_beta) for r in cat_rules for rhs in rhs(r))
     preterminals = C[]
     terminal_dict = Dict{T, Vector{Tuple{C, TR}}}()
     for r in term_rules
