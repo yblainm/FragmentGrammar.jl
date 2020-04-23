@@ -6,19 +6,6 @@ This project is a Julia reimplementation of Timothy J. O'Donnell's work on Fragm
 
 Please cite the following works when using this software:
 
-```
-@article{o2009fragment,
-  title={Fragment grammars: Exploring computation and reuse in language},
-  author={O'Donnell, Timothy J and Tenenbaum, Joshua B and Goodman, Noah D},
-  year={2009}
-}
+O’Donnell, T. J., Goodman, N. D., and Tenenbaum, J. B. (2009). Fragment gram- mars: Exploring computation and reuse in language. Technical Report MIT-CSAIL-TR-2009-013, MIT Computer Science and Artificial Intelligence Laboratory Technical Report Series, Cambridge, MA.
 
-@inproceedings{o2011productivity,
-  title={Productivity and reuse in language},
-  author={O'Donnell, Timothy and Snedeker, Jesse and Tenenbaum, Joshua and Goodman, Noah},
-  booktitle={Proceedings of the Annual Meeting of the Cognitive Science Society},
-  volume={33},
-  number={33},
-  year={2011}
-}
-```
+O’Donnell, T. J. (2015). Productivity and Reuse in Language: A Theory of Linguistic Computation and Storage. The MIT Press, Cambridge, Massachusetts.
