@@ -2,7 +2,7 @@
 
 Read the [paper](https://github.com/yblainm/FragmentGrammar.jl/blob/dev/paper.pdf).
 
-This project is a Julia reimplementation of Timothy J. O'Donnell's work on Fragment Grammars and his original OCaml implementation.
+This project is a Julia reimplementation of Timothy J. O'Donnell's work on Fragment Grammars and his original OCaml implementation. It was made at the [Montreal Quantitative & Computational Linguistics Lab](https://mcqll.org/) under the supervision of Timothy J. O'Donnell.
 
 Please cite the following works when using this software:
 
